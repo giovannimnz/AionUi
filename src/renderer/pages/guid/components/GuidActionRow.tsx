@@ -18,6 +18,7 @@ import PresetAgentTag, { type AgentSwitcherItem } from './PresetAgentTag';
 import { Button, Checkbox, Dropdown, Menu, Message, Tooltip } from '@arco-design/web-react';
 import { ArrowUp, Brain, FolderOpen, Lightning, Plus, Shield, UploadOne } from '@icon-park/react';
 import React, { useCallback, useRef, useState } from 'react';
+import DirectorySelectionModal from '@/renderer/components/settings/DirectorySelectionModal';
 import { useTranslation } from 'react-i18next';
 import styles from '../index.module.css';
 
@@ -103,6 +104,7 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
   // Browser file picker ref (WebUI only)
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [showDirectorySelector, setShowDirectorySelector] = useState(false);
 
   const handleLocalFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,7 +246,19 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
           )}
         </div>
 
-        {!isWebUI && (
+        {isWebUI ? (
+          <Button
+            className='sendbox-model-btn'
+            shape='round'
+            size='small'
+            onClick={() => setShowDirectorySelector(true)}
+          >
+            <span className='flex items-center gap-6px leading-none'>
+              <FolderOpen theme='outline' size='14' fill='currentColor' style={{ lineHeight: 0, flexShrink: 0 }} />
+              <span>{t('conversation.welcome.specifyWorkspace')}</span>
+            </span>
+          </Button>
+        ) : (
           <Button
             className='sendbox-model-btn'
             shape='round'
@@ -325,6 +339,16 @@ const GuidActionRow: React.FC<GuidActionRowProps> = ({
           onClick={onSend}
         />
       </div>
+      <DirectorySelectionModal
+        visible={showDirectorySelector}
+        onCancel={() => setShowDirectorySelector(false)}
+        onConfirm={(paths) => {
+          if (paths && paths.length > 0) {
+            onSelectWorkspace(paths[0]);
+          }
+          setShowDirectorySelector(false);
+        }}
+      />
     </div>
   );
 };
