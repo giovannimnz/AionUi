@@ -157,6 +157,9 @@ AionUi (Electron/React)
 
 This fork is synchronized with upstream (`iOfficeAI/AionUi`) using **fork-sync**. All customizations are protected against being overwritten during upstream merges.
 
+**Fork-sync config repo:** https://github.com/giovannimnz/fork-sync-aionui
+(`~/fork-sync/projects/aionui/sync.yaml` → synced to this repo on each update)
+
 ### Release Versioning
 
 Releases follow the schema **`v{upstream_version}-rf{N}`**:
