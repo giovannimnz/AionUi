@@ -1,40 +1,18 @@
 ---
-# officecli: v1.0.63
 name: officecli-docx
 description: "Use this skill any time a .docx file is involved -- as input, output, or both. This includes: creating Word documents, reports, letters, memos, or proposals; reading, parsing, or extracting text from any .docx file; editing, modifying, or updating existing documents; working with templates, tracked changes, comments, headers/footers, or tables of contents. Trigger whenever the user mentions 'Word doc', 'document', 'report', 'letter', 'memo', or references a .docx filename."
 ---
 
-# officecli: v1.0.63
-
 # OfficeCLI DOCX Skill
 
-## BEFORE YOU START
+## Setup
 
-**Mental model.** A `.docx` is a ZIP of XML parts (`document.xml`, `styles.xml`, `numbering.xml`, `header*.xml`, `footer*.xml`, `comments.xml`, ...). Everything the user sees — headings, tables, page numbers, TOC, tracked changes — is XML inside that ZIP. `officecli` gives you a semantic-path API (`/body/p[1]/r[2]`) over it, so you almost never touch raw XML; when you must, use `raw-set`.
+If `officecli` is missing:
 
-**Install check.** If `officecli --version` fails:
+- **macOS / Linux**: `curl -fsSL https://raw.githubusercontent.com/iOfficeAI/OfficeCLI/main/install.sh | bash`
+- **Windows (PowerShell)**: `irm https://raw.githubusercontent.com/iOfficeAI/OfficeCLI/main/install.ps1 | iex`
 
-```bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/iOfficeAI/OfficeCLI/main/install.sh | bash
-```
-
-```powershell
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/iOfficeAI/OfficeCLI/main/install.ps1 | iex
-```
-
-If still not found, open a new terminal, then `officecli --version` should report `1.0.63` or newer.
-
-**Shell quoting (zsh / bash).** docx paths contain `[]`, some prop values contain `$`. Both are shell metacharacters. Rules:
-
-- ALWAYS quote element paths: `"/body/p[1]"`, not `/body/p[1]`.
-- Use **single quotes** for any prop value containing `$`: `--prop text='$50M'`.
-- NEVER hand-write `\$`, `\t`, `\n` inside executable examples. The CLI does not interpret backslash escapes; they will land in your file as literal characters. In a cell / paragraph text, a real newline goes through the JSON layer (`batch` heredoc with `"\n"` inside the JSON string).
-
-**Incremental execution.** Run commands one at a time and read each exit code. `officecli` mutates the file on every call; a 50-command script that fails at command 3 will cascade silently. One command → check output → continue. After any structural op (new style, table, TOC, section break) run `get` on it before stacking more on top.
-
-**File-name convention in this skill.** Fixed-command examples (Reading & Analysis, Creating & Editing) use the literal `doc.docx` — swap in your own filename. Copy-paste blocks and recipes that you will run _as-is_ (Quick Start, Delivery Gate, Report-level recipes (a)-(f)) use `"$FILE"` — set once at the top of your script (`FILE="annual-review.docx"`) and every command picks it up. When in doubt, treat `$FILE` blocks as drop-in and `doc.docx` blocks as patterns.
+Verify with `officecli --version` (open a new terminal if PATH hasn't picked up). If install fails, download a binary from https://github.com/iOfficeAI/OfficeCLI/releases.
 
 ## ⚠️ Help-First Rule
 
@@ -48,6 +26,22 @@ officecli help docx <element> --json        # Machine-readable schema
 ```
 
 Help is pinned to the installed CLI version. When this skill and help disagree, **help is authoritative**. Special-topic mini-sections below end with an explicit pointer back to help.
+
+## Mental Model & Inheritance
+
+**Mental model.** A `.docx` is a ZIP of XML parts (`document.xml`, `styles.xml`, `numbering.xml`, `header*.xml`, `footer*.xml`, `comments.xml`, ...). Everything the user sees — headings, tables, page numbers, TOC, tracked changes — is XML inside that ZIP. `officecli` gives you a semantic-path API (`/body/p[1]/r[2]`) over it, so you almost never touch raw XML; when you must, use `raw-set`.
+
+## Shell & Execution Discipline
+
+**Shell quoting (zsh / bash).** docx paths contain `[]`, some prop values contain `$`. Both are shell metacharacters. Rules:
+
+- ALWAYS quote element paths: `"/body/p[1]"`, not `/body/p[1]`.
+- Use **single quotes** for any prop value containing `$`: `--prop text='$50M'`. The rule holds at any length — a 200-word body paragraph containing `$50M` needs the whole value inside single quotes, same as a three-word heading: `--prop text='In Q4 we hit $50M ARR, up 18% YoY — the strongest quarter since inception...'`. Mixing `'... $var ...'` and `"... $50 ..."` on long strings is where shell-leak silently strips `$50` → nothing.
+- NEVER hand-write `\$`, `\t`, `\n` inside executable examples. The CLI does not interpret backslash escapes; they will land in your file as literal characters. In a cell / paragraph text, a real newline goes through the JSON layer (`batch` heredoc with `"\n"` inside the JSON string).
+
+**Incremental execution.** Run commands one at a time and read each exit code. `officecli` mutates the file on every call; a 50-command script that fails at command 3 will cascade silently. One command → check output → continue. After any structural op (new style, table, TOC, section break) run `get` on it before stacking more on top.
+
+**File-name convention in this skill.** All commands use `"$FILE"` — set once at the top of your script or session (`FILE="your-doc.docx"`) and every command picks it up. Copy-paste blocks and individual examples both assume `$FILE` is set. Do NOT copy a literal `doc.docx` / `review.docx` into an output directory — that is the wrong filename, always substitute your actual target.
 
 ## Requirements for Outputs
 
@@ -71,7 +65,7 @@ Before reaching for a command, know what a good docx looks like. These are the d
 
 ### Visual delivery floor (applies to EVERY document)
 
-Before you declare done, open `officecli view "$FILE" html --browser` and confirm all of these:
+Before you declare done, run `officecli view "$FILE" html` and Read the returned HTML path to confirm all of these:
 
 - **No placeholder tokens rendered as data.** `$xxx$`, `{var}`, `{{name}}`, `<TODO>`, `lorem`, `xxxx` must never appear in a heading, body paragraph, cover page, TOC, caption, header, or footer. These are build-time tokens that escaped replacement. If you want a literal `{name}` in a template for a human to fill, wrap it in a visible instruction paragraph ("Replace `{name}` before sending") so no one confuses it with finished content.
 - **No truncated titles or overflowing cells.** Long headings / table cell values must fit the page and the column. If a cell overflows, widen the column or set `wrapText` on the cell.
@@ -93,10 +87,10 @@ If any of the above fails, STOP and fix before declaring done.
 Six steps. Every non-trivial build follows this shape.
 
 1. **Choose the mode.** Always use `officecli open <file>` at the start and `officecli close <file>` at the end. Resident mode is the default, not an optimization — it avoids re-parsing the XML on every command. For many paragraphs of the same style, use `batch` (≤ 12 ops per block for reliability).
-2. **Orient.** For a new file, `officecli create doc.docx`. For existing, `officecli view doc.docx outline` first — get the heading tree, section count, whether a TOC / watermark / tracked changes are already there. Never start editing blind.
+2. **Orient.** For a new file, `officecli create "$FILE"`. For existing, `officecli view "$FILE" outline` first — get the heading tree, section count, whether a TOC / watermark / tracked changes are already there. Never start editing blind.
 3. **Build incrementally.** Structural first, content next, formatting last. Styles and numbering defs → sections / page setup → headings and body → tables / images / fields / TOC → headers / footers → comments. After each structural op, `get` it back to confirm shape before stacking on top.
 4. **Format to spec.** Explicit heading sizes, spacing, widths, alignment, tabs, list indents. Formatting is not optional polish — per Requirements for Outputs it is part of the deliverable.
-5. **Close, then recalculate fields.** `officecli close doc.docx` writes XML to disk. TOC / PAGE / NUMPAGES / SEQ / PAGEREF fields have **cached values** that may be stale or empty. When a human opens the file in Word, they press F9 to recalc. For the CLI's purposes, confirm fields _exist_ (via `get --depth 3` finding `<w:fldChar>`) rather than trusting the text value — the text is the cached render, the field is the truth.
+5. **Close, then recalculate fields.** `officecli close "$FILE"` writes XML to disk. TOC / PAGE / NUMPAGES / SEQ / PAGEREF fields have **cached values** that may be stale or empty. When a human opens the file in Word, they press F9 to recalc. For the CLI's purposes, confirm fields _exist_ (via `get --depth 3` finding `<w:fldChar>`) rather than trusting the text value — the text is the cached render, the field is the truth.
 6. **QA — assume there are problems.** See the QA section. You are not done when your last command exited 0; you are done after one fix-and-verify cycle finds zero new issues.
 
 ## Quick Start
@@ -111,12 +105,13 @@ officecli add "$FILE" /body --type paragraph --prop text="Q4 2026 Review" --prop
 officecli add "$FILE" /body --type paragraph --prop text="Revenue grew 18% year-over-year, ahead of plan." --prop size=11pt --prop spaceAfter=8pt
 officecli add "$FILE" /body --type paragraph --prop text="Key Drivers" --prop style=Heading2 --prop size=14pt --prop bold=true --prop spaceBefore=12pt --prop spaceAfter=6pt
 officecli add "$FILE" /body --type paragraph --prop text="Enterprise renewals, upsell, and a new EMEA region." --prop size=11pt
-officecli add "$FILE" / --type footer --prop type=default --prop alignment=center --prop size=9pt --prop text="Page " --prop field=page
+officecli add "$FILE" / --type footer --prop type=default --prop size=9pt --prop text="Page " --prop field=page
+officecli set "$FILE" "/footer[1]/p[1]" --prop align=center
 officecli close "$FILE"
 officecli validate "$FILE"
 ```
 
-Verified: `validate` returns `no errors found`; `get /footer[1] --depth 3` shows the 5-run PAGE field chain (the begin / instrText / separate / cached value / end runs that wrap the live field), not a static `"Page"` string; for the raw `<w:fldChar>` XML behind those runs, use `officecli raw doc.docx "/footer[1]" | grep fldChar`. This is the shape of every build: open → structure → content → format → footer/fields → close → validate.
+Verified: `validate` returns `no errors found`; `get /footer[1] --depth 3` shows the 5-run PAGE field chain (the begin / instrText / separate / cached value / end runs that wrap the live field), not a static `"Page"` string; for the raw `<w:fldChar>` XML behind those runs, use `officecli raw "$FILE" "/footer[1]" | grep fldChar`. This is the shape of every build: open → structure → content → format → footer/fields → close → validate.
 
 ## Reading & Analysis
 
@@ -124,36 +119,36 @@ Start wide, then narrow. `outline` tells you what structure is already there; ju
 
 **Open the rendered document to eyeball your own work.**
 
-- `officecli view $FILE html --browser` opens the document in a browser tab. Headings, tables, page breaks visible. Catches heading hierarchy issues, empty paragraphs-as-spacing, missing TOC entries.
-- `officecli watch $FILE` keeps the preview live as you iterate (optional).
-  Use this as your **first visual check after a batch of edits**.
+- `officecli view $FILE html` — Read the returned HTML to audit the rendered output. Headings, tables, page breaks visible. Catches heading hierarchy issues, empty paragraphs-as-spacing, missing TOC entries.
+- `officecli watch $FILE` keeps a live preview running for the human user — they can open it at their own discretion. Use only when the user wants to watch along; agent self-check uses `view html` above.
+  Use `view html` as your **first visual check after a batch of edits**. For final visual verification, the user opens the `.docx` in their Word / WPS / Pages viewer.
 
 **Orient.** Heading tree, section count, table / image counts, watermark, tracked changes presence.
 
 ```bash
-officecli view doc.docx outline
+officecli view "$FILE" outline
 ```
 
 **Extract text for content QA or LLM context.** Paths are shown as `[/body/p[N]]` so you can jump back with `get`. Scope with `--start` / `--end` / `--max-lines` on long documents.
 
 ```bash
-officecli view doc.docx text --start 1 --end 80
-officecli view doc.docx annotated          # values + style/font/size + warnings per run
-officecli view doc.docx stats              # paragraph counts, font usage, style distribution
-officecli view doc.docx issues             # empty paras, missing alt text, spacing anomalies
+officecli view "$FILE" text --start 1 --end 80
+officecli view "$FILE" annotated          # values + style/font/size + warnings per run
+officecli view "$FILE" stats              # paragraph counts, font usage, style distribution
+officecli view "$FILE" issues             # empty paras, missing alt text, spacing anomalies
 ```
 
 **Inspect one element.** XPath-style semantic paths (1-based, like XPath). Always quote — shells glob `[N]`.
 
 ```bash
-officecli get doc.docx /                          # document root: metadata, page setup
-officecli get doc.docx /body --depth 1            # body children overview
-officecli get doc.docx "/body/p[1]"                # one paragraph
-officecli get doc.docx "/body/p[1]/r[1]"           # one run (character-level formatting)
-officecli get doc.docx "/body/tbl[1]" --depth 3    # table with rows and cells
-officecli get doc.docx "/footer[1]" --depth 3      # footer — check for fldChar
-officecli get doc.docx "/styles/Heading1"          # style definition
-officecli get doc.docx /numbering --depth 2        # numbering abstractNum + num bindings
+officecli get "$FILE" /                          # document root: metadata, page setup
+officecli get "$FILE" /body --depth 1            # body children overview
+officecli get "$FILE" "/body/p[1]"                # one paragraph
+officecli get "$FILE" "/body/p[1]/r[1]"           # one run (character-level formatting)
+officecli get "$FILE" "/body/tbl[1]" --depth 3    # table with rows and cells
+officecli get "$FILE" "/footer[1]" --depth 3      # footer — check for fldChar
+officecli get "$FILE" "/styles/Heading1"          # style definition
+officecli get "$FILE" /numbering --depth 2        # numbering abstractNum + num bindings
 ```
 
 Add `--json` for machine output. Use `[last()]` (with parentheses) to address the last element: `/body/tbl[last()]/tr[1]`. `[last]` without parens errors.
@@ -161,12 +156,12 @@ Add `--json` for machine output. Use `[last()]` (with parentheses) to address th
 **Query across the document.** CSS-like selectors, for systematic checks rather than hand-walking.
 
 ```bash
-officecli query doc.docx 'paragraph[style=Heading1]'       # all H1s
-officecli query doc.docx 'p:contains("quarterly")'         # text match
-officecli query doc.docx 'p:empty'                         # empty paragraphs (clutter)
-officecli query doc.docx 'image:no-alt'                    # accessibility gaps
-officecli query doc.docx 'paragraph[size>=24pt]'           # numeric comparison
-officecli query doc.docx 'field[fieldType!=page]'          # fields other than PAGE
+officecli query "$FILE" 'paragraph[style=Heading1]'       # all H1s
+officecli query "$FILE" 'p:contains("quarterly")'         # text match
+officecli query "$FILE" 'p:empty'                         # empty paragraphs (clutter)
+officecli query "$FILE" 'image:no-alt'                    # accessibility gaps
+officecli query "$FILE" 'paragraph[size>=24pt]'           # numeric comparison
+officecli query "$FILE" 'field[fieldType!=page]'          # fields other than PAGE
 ```
 
 Operators: `=`, `!=`, `~=` (contains), `>=`, `<=`, `[attr]` (exists). Full selector reference: `officecli query --help`.
@@ -182,8 +177,8 @@ The verbs: `add` (new element), `set` (change a prop), `remove`, `move`, `swap`,
 A paragraph (`p`) is a block; a run (`r`) is a span of consistent character formatting inside it. Set paragraph-level properties (style, alignment, spacing, indent) on the `p`; set font / size / color / bold on the `r`.
 
 ```bash
-officecli add doc.docx /body --type paragraph --prop text="Executive Summary" --prop style=Heading1 --prop size=18pt --prop bold=true --prop spaceAfter=12pt
-officecli set doc.docx "/body/p[1]/r[1]" --prop color=1F4E79
+officecli add "$FILE" /body --type paragraph --prop text="Executive Summary" --prop style=Heading1 --prop size=18pt --prop bold=true --prop spaceAfter=12pt
+officecli set "$FILE" "/body/p[1]/r[1]" --prop color=1F4E79
 ```
 
 **Use styles, not ad-hoc formatting.** `style=Heading1` references the document's style definition — change the definition once, all headings update. Inline `size=18pt` on every heading is a style-bypass; when you need to retheme you have to touch every paragraph.
@@ -195,44 +190,44 @@ Use `spaceBefore` / `spaceAfter` for vertical spacing. Never use chains of empty
 Tables are `/body/tbl[N]` with rows `tr[N]` and cells `tc[N]`. Add the table with a row and column count, then fill.
 
 ```bash
-officecli add doc.docx /body --type table --prop rows=4 --prop cols=3 --prop width=100%
-officecli set doc.docx "/body/tbl[1]/tr[1]" --prop header=true --prop c1=Quarter --prop c2="Revenue" --prop c3="Growth"
-officecli set doc.docx "/body/tbl[1]/tr[1]/tc[1]/p[1]/r[1]" --prop bold=true
+officecli add "$FILE" /body --type table --prop rows=4 --prop cols=3 --prop width=100%
+officecli set "$FILE" "/body/tbl[1]/tr[1]" --prop header=true --prop c1=Quarter --prop c2="Revenue" --prop c3="Growth"
+officecli set "$FILE" "/body/tbl[1]/tr[1]/tc[1]/p[1]/r[1]" --prop bold=true
 ```
 
-Row-level `set` supports `height`, `header`, and `c1 / c2 / ... / cN` text shortcuts — `cN` generalises, use as many as the table has columns (Tester #1 R2 shipped a 5-column Scenario matrix with `c1..c5`; earlier skill versions falsely capped at `c3`). Cell formatting (bold, fill, color) goes on the cell's paragraph / run. For per-cell borders, use the paragraph-level `pbdr.*` dotted-attr on the cell's inner paragraph instead of cell-level `border.bottom` (the cell-level border prop currently places `<w:tcBorders>` in the wrong XML position and fails `validate` — see Known Issues).
+Row-level `set` supports `height`, `header`, and `c1 / c2 / ... / cN` text shortcuts — `cN` generalises to any column count, use as many as the table has columns (a 7-column matrix accepts `c1` through `c7`). Cell formatting (bold, fill, color) goes on the cell's paragraph / run. For per-cell borders, use the paragraph-level `pbdr.*` dotted-attr on the cell's inner paragraph instead of cell-level `border.bottom` (the cell-level border prop currently places `<w:tcBorders>` in the wrong XML position and fails `validate` — see Known Issues).
 
 ### Lists (bullets, numbered, multi-level)
 
 For single-level bullets or numbers, set `listStyle` on the paragraph (`listStyle` is a paragraph prop, NOT a run prop — common mistake):
 
 ```bash
-officecli add doc.docx /body --type paragraph --prop text="First item" --prop listStyle=bullet
-officecli add doc.docx /body --type paragraph --prop text="Second item" --prop listStyle=bullet
+officecli add "$FILE" /body --type paragraph --prop text="First item" --prop listStyle=bullet
+officecli add "$FILE" /body --type paragraph --prop text="Second item" --prop listStyle=bullet
 ```
 
 For multi-level (legal-style 1 / 1.1 / 1.1.1 / appendix numbering), add an `abstractNum` then a `num`, then reference the `numId` from each paragraph:
 
 ```bash
-officecli add doc.docx /numbering --type abstractnum --prop format=decimal
-officecli add doc.docx /numbering --type num --prop abstractNumId=1
-officecli add doc.docx /body --type paragraph --prop text="Section one" --prop numId=1 --prop ilvl=0
+officecli add "$FILE" /numbering --type abstractnum --prop format=decimal
+officecli add "$FILE" /numbering --type num --prop abstractNumId=1
+officecli add "$FILE" /body --type paragraph --prop text="Section one" --prop numId=1 --prop ilvl=0
 ```
 
-After adding, verify with `officecli query doc.docx 'paragraph[numId>0]'` that every `numId` reference points at a real `<w:num>`. See `officecli help docx abstractnum` and `officecli help docx num` for all level and format options.
+After adding, verify with `officecli query "$FILE" 'paragraph[numId>0]'` that every `numId` reference points at a real `<w:num>`. See `officecli help docx abstractnum` and `officecli help docx num` for all level and format options.
 
 ### Tab stops (dot leaders, right-aligned page numbers)
 
 Used for positional layout — a signature line, a TOC-entry-style "Chapter 1 ........ 12" row, a form field slot. Tab stops are a first-class `tab` element added as a child of the paragraph:
 
 ```bash
-officecli add doc.docx "/body/p[1]" --type tab --prop pos=6in --prop val=right --prop leader=dot
-officecli add doc.docx "/body/p[2]" --type tab --prop pos=3cm --prop val=left --prop leader=underscore
+officecli add "$FILE" "/body/p[1]" --type tab --prop pos=6in --prop val=right --prop leader=dot
+officecli add "$FILE" "/body/p[2]" --type tab --prop pos=3cm --prop val=left --prop leader=underscore
 ```
 
 `pos` accepts `6in` / `6cm` / twips. `val` ∈ `left` / `center` / `right`. `leader` ∈ `none` / `dot` / `hyphen` / `underscore`. Paths are 1-based: `/body/p[N]/tab[K]`. See `officecli help docx tab` for the full grammar.
 
-**Leader rendering caveat.** `leader=dot` / `underscore` on a tab definition alone does not emit dots/underscore in the output — the leader only renders when a real `<w:tab/>` character is present inside a run of that paragraph, and the high-level API does not insert `<w:tab/>` runs. For visible signature lines or dot-leader TOC-style rows you have two working options: (a) use literal characters — `text="_______________________________________"` for a signature line, or `"Chapter 1 ............ 12"` for a leader row — visually equivalent and ships reliably; or (b) `raw-set` a `<w:r><w:tab/></w:r>` into the paragraph before the leading line. Tester #2 took option (a) after the tab element produced an empty tabs container that then needed cleanup.
+**Leader rendering caveat.** `leader=dot` / `underscore` on a tab definition alone does not emit dots/underscore in the output — the leader only renders when a real `<w:tab/>` character is present inside a run of that paragraph, and the high-level API does not insert `<w:tab/>` runs. For visible signature lines or dot-leader TOC-style rows you have two working options: (a) use literal characters — `text="_______________________________________"` for a signature line, or `"Chapter 1 ............ 12"` for a leader row — visually equivalent and ships reliably; or (b) `raw-set` a `<w:r><w:tab/></w:r>` into the paragraph before the leading line.
 
 ### Fields (PAGE / NUMPAGES / DATE / MERGEFIELD / REF)
 
@@ -246,16 +241,18 @@ Fields are live values computed at render time. Two props carry all the info: `f
 | `mergefield` | template merge token          | `--prop fieldType=mergefield --prop name=CustomerName`           |
 | `ref`        | cross-reference to a bookmark | `--prop fieldType=ref --prop name=bookmarkName`                  |
 
-The full `fieldType` enum (13 values: `page`, `pagenum`, `pagenumber`, `numpages`, `date`, `author`, `title`, `time`, `filename`, `section`, `sectionpages`, `mergefield`, `ref`) is in `officecli help docx field`. **There is NO `fieldInstr`, `seq`, or `pageref` fieldType** — old skill versions showed these; they will error. Numbered captions (`SEQ Figure`) and `PAGEREF` cross-refs currently require `raw-set` with a `<w:fldChar>` chain.
+The full `fieldType` enum (30+ values: `page`, `pagenum`, `pagenumber`, `numpages`, `date`, `time`, `author`, `title`, `filename`, `section`, `sectionpages`, `mergefield`, `ref`, `pageref`, `noteref`, `seq`, `styleref`, `docproperty`, `if`, `createdate`, `savedate`, `printdate`, `edittime`, `lastsavedby`, `subject`, `numwords`, `numchars`, `revnum`, `template`, `comments`, `keywords`) is in `officecli help docx field`. **There is NO `fieldInstr` fieldType** — use the `instr` prop (alias `instruction`) to inject raw field instruction text when typed shortcuts fall short. Picture switches (`MERGEFIELD Amount \# "#,##0.00"`, `DATE \@ "yyyy年MM月"`) go via `--prop instr='...'` on mergefield and via `--prop format='yyyy-MM-dd'` on date/time (mergefield's `format` prop is ignored with a warning — use `instr` instead).
+
+**SEQ / PAGEREF cached-value trap.** `seq` and `pageref` are CLI-expressible (`--prop fieldType=seq --prop identifier=Figure`, `--prop fieldType=pageref --prop name=bookmark`) and pass `validate`, but every instance emits cached `<w:t>` of `1` regardless of position — so three `SEQ Figure` captions render as `Figure 1 / Figure 1 / Figure 1` in viewers that do not recompute on open. Set `<w:updateFields w:val="true"/>` in settings (via `raw-set`) and/or patch the cached `<w:t>` after each SEQ. Academic papers with multiple figures/tables: see the `officecli-academic-paper` skill for the full SEQ patch recipe.
 
 For a standalone MERGEFIELD inside a paragraph:
 
 ```bash
-officecli add doc.docx "/body/p[3]" --type field --prop fieldType=mergefield --prop name=customer_name
+officecli add "$FILE" "/body/p[3]" --type field --prop fieldType=mergefield --prop name=customer_name
 # Renders as «customer_name» — visible placeholder, replaced in Word at mail-merge time.
 ```
 
-Verified: canonical form passes `validate` and renders `«customer_name»` on open. Confirm all MERGEFIELDs exist with `officecli query doc.docx 'field[fieldType=mergefield]'`.
+Verified: canonical form passes `validate` and renders `«customer_name»` on open. Confirm all MERGEFIELDs exist with `officecli query "$FILE" 'field[fieldType=mergefield]'`.
 
 **MERGEFIELD templates: do NOT render placeholder literals.** If a template shows `{{customer_name}}` or `$NAME$` as body text, a human recipient sees the literal token — that is a failed template. Either (a) insert a real MERGEFIELD via the `field` type above, which Word replaces at mail-merge time, or (b) put literal tokens only inside an obvious instruction paragraph ("Replace `{{customer_name}}` before sending"). See Requirements for Outputs → Visual delivery floor.
 
@@ -265,10 +262,10 @@ The single-command pattern — the CLI injects `<w:fldChar>` so you do not compo
 
 ```bash
 # Empty first-page footer — auto-enables differentFirstPage so the cover has no page number
-officecli add doc.docx / --type footer --prop type=first --prop text=""
+officecli add "$FILE" / --type footer --prop type=first --prop text=""
 
 # Default footer with live page number
-officecli add doc.docx / --type footer --prop type=default --prop alignment=center --prop size=9pt --prop text="Page " --prop field=page
+officecli add "$FILE" / --type footer --prop type=default --prop align=center --prop size=9pt --prop text="Page " --prop field=page
 ```
 
 When both a first-page footer and a default footer exist, the default footer is `/footer[2]`. If only a default footer, it is `/footer[1]`. **Verify**: `get --depth 3` must show `fldChar` children, not just a run with literal text `"Page"`. `view outline` prints "Footer: Page" for both live fields AND static text — do not rely on it.
@@ -282,7 +279,7 @@ For composite footers like "Page X of Y" (PAGE + NUMPAGES in one paragraph), see
 For any document with 3+ headings (Requirements):
 
 ```bash
-officecli add doc.docx /body --type toc --prop levels="1-3" --prop title="Table of Contents" --prop hyperlinks=true --index 0
+officecli add "$FILE" /body --type toc --prop levels="1-3" --prop title="Table of Contents" --prop hyperlinks=true --index 0
 ```
 
 The TOC is a live field — when a human opens the file, the viewer either populates it on open or shows it after the user recalculates (F9 in Word). Do NOT pass `--prop pagenumbers=true` — UNSUPPORTED; page numbers render automatically.
@@ -290,14 +287,14 @@ The TOC is a live field — when a human opens the file, the viewer either popul
 **Addressing the TOC (1.0.60+).** Direct paths `/toc[1]` or `/tableofcontents` resolve to the first TOC field without hand-walking XPath — use these as the primary path for `get` / `set` / `remove`:
 
 ```bash
-officecli get doc.docx "/toc[1]" --depth 2            # primary path — no raw-set needed to locate
-officecli get doc.docx "/tableofcontents" --depth 2   # alias, same target
+officecli get "$FILE" "/toc[1]" --depth 2            # primary path — no raw-set needed to locate
+officecli get "$FILE" "/tableofcontents" --depth 2   # alias, same target
 ```
 
 **TOC delivery step — treat this as mandatory before handing the file off.** **The live TOC field is a placeholder until recalculated.** Some viewers show the real heading list on first open; others show the literal string `Update field to see table of contents` until the reader recalculates. Two workarounds — pick one based on who reads the file:
 
 - **Recipients who will open in a viewer that recalculates (or who will press F9)**: add a visible instruction ("Press F9 to refresh the TOC and page numbers"). No further action needed.
-- **Recipients who cannot / will not recalculate**: use the **static TOC fallback — see Report-level recipes (f) below**. No CLI-only pipeline currently populates `<w:sdtContent>` with the cached heading rows that Word writes on save. `raw-set` on `//w:sdt/w:sdtContent` is theoretically possible but requires reconstructing the exact per-heading XML (with correct bookmarks, PAGEREF chains, and cached page numbers) and has not worked for any R1/R2 Tester. Hand-write the static fallback instead.
+- **Recipients who cannot / will not recalculate**: use the **static TOC fallback — see Report-level recipes (f) below**. No CLI-only pipeline currently populates `<w:sdtContent>` with the cached heading rows that Word writes on save. Headless conversion tools cannot pre-render the TOC on Word's behalf — their TOC handling and pagination differ, so relying on them to "fill" the TOC for a Word recipient is unsafe. `raw-set` on `//w:sdt/w:sdtContent` is theoretically possible but requires reconstructing the exact per-heading XML (with correct bookmarks, PAGEREF chains, and cached page numbers) and has not worked reliably. Hand-write the static fallback instead.
 
 Ship-check: `officecli query "$FILE" 'p:contains("Update field to see")'` must return empty whenever the reader won't recalculate. If it matches, the TOC is unpopulated — switch to recipe (f).
 
@@ -306,18 +303,18 @@ Ship-check: `officecli query "$FILE" 'p:contains("Update field to see")'` must r
 Pictures go inside a run. Alt text is mandatory for accessibility, but **add rejects `alt` at create time** (CLI bug C-D-3): add first, then `set`.
 
 ```bash
-officecli add doc.docx "/body/p[5]" --type picture --prop src=chart.png --prop width=4in
-officecli set doc.docx "/body/p[5]/r[last()]" --prop alt="Q4 revenue by region, bar chart"
+officecli add "$FILE" "/body/p[5]" --type picture --prop src=chart.png --prop width=4in
+officecli set "$FILE" "/body/p[5]/r[last()]" --prop alt="Q4 revenue by region, bar chart"
 ```
 
-Confirm with `officecli query doc.docx 'image:no-alt'` — output should be empty before delivery.
+Confirm with `officecli query "$FILE" 'image:no-alt'` — output should be empty before delivery.
 
 ### Hyperlinks and bookmarks
 
 External links go via `hyperlink`:
 
 ```bash
-officecli add doc.docx "/body/p[2]" --type hyperlink --prop uri="https://example.com" --prop text="our site"
+officecli add "$FILE" "/body/p[2]" --type hyperlink --prop uri="https://example.com" --prop text="our site"
 ```
 
 **Internal links (to a bookmark within the document) are NOT supported by the high-level `hyperlink` command** — it rejects fragment URLs. Use `raw-set` with `<w:hyperlink w:anchor="bookmarkName">`, or pair a `PAGEREF` field with visible text. See `officecli help docx hyperlink` and `officecli help docx bookmark`.
@@ -327,7 +324,7 @@ officecli add doc.docx "/body/p[2]" --type hyperlink --prop uri="https://example
 Document root `/` carries page setup (`pageWidth`, `pageHeight`, margins). Multi-section documents (landscape insert, column layout) add a `section` break; use `officecli help docx section` for the section prop list.
 
 ```bash
-officecli set doc.docx / --prop pageWidth=12240 --prop pageHeight=15840 --prop marginTop=1440 --prop marginLeft=1440
+officecli set "$FILE" / --prop pageWidth=12240 --prop pageHeight=15840 --prop marginTop=1440 --prop marginLeft=1440
 ```
 
 Section accepts both camelCase (`pageWidth`, canonical) and lowercase alias (`pagewidth`). Prefer camelCase.
@@ -339,15 +336,15 @@ Four patterns that come up on every long-form report and aren't covered by the Q
 **(a) Rich cover page — hit the ≥ 60% filled floor.** A bare title + date cover reads as unfinished. Stack a confidentiality banner, title, subtitle, client/project/date block, and a 3-line key-themes strip:
 
 ```bash
-officecli add "$FILE" /body --type paragraph --prop text="CONFIDENTIAL — CLIENT USE ONLY" --prop alignment=center --prop size=9pt --prop color=C00000 --prop spaceAfter=24pt
-officecli add "$FILE" /body --type paragraph --prop text="Strategic Growth Review" --prop style=Title --prop size=32pt --prop bold=true --prop alignment=center --prop font=Cambria --prop spaceAfter=8pt
-officecli add "$FILE" /body --type paragraph --prop text="FY26 Outlook and Scenario Planning" --prop italic=true --prop size=16pt --prop alignment=center --prop spaceAfter=36pt
-officecli add "$FILE" /body --type paragraph --prop text='Prepared for: Acme Corp. Leadership Team' --prop alignment=center --prop size=11pt
-officecli add "$FILE" /body --type paragraph --prop text='Engagement: 2026-04 — 2026-06' --prop alignment=center --prop size=11pt
-officecli add "$FILE" /body --type paragraph --prop text='Author: Advisory Partners' --prop alignment=center --prop size=11pt --prop spaceAfter=36pt
-officecli add "$FILE" /body --type paragraph --prop text="Key themes: 1) margin resilience, 2) EMEA expansion, 3) capital allocation." --prop alignment=center --prop italic=true --prop size=10pt
+officecli add "$FILE" /body --type paragraph --prop text="CONFIDENTIAL — CLIENT USE ONLY" --prop align=center --prop size=9pt --prop color=C00000 --prop spaceAfter=24pt
+officecli add "$FILE" /body --type paragraph --prop text="Strategic Growth Review" --prop style=Title --prop size=32pt --prop bold=true --prop align=center --prop font=Cambria --prop spaceAfter=8pt
+officecli add "$FILE" /body --type paragraph --prop text="FY26 Outlook and Scenario Planning" --prop italic=true --prop size=16pt --prop align=center --prop spaceAfter=36pt
+officecli add "$FILE" /body --type paragraph --prop text='Prepared for: Acme Corp. Leadership Team' --prop align=center --prop size=11pt
+officecli add "$FILE" /body --type paragraph --prop text='Engagement: 2026-04 — 2026-06' --prop align=center --prop size=11pt
+officecli add "$FILE" /body --type paragraph --prop text='Author: Advisory Partners' --prop align=center --prop size=11pt --prop spaceAfter=36pt
+officecli add "$FILE" /body --type paragraph --prop text="Key themes: 1) margin resilience, 2) EMEA expansion, 3) capital allocation." --prop align=center --prop italic=true --prop size=10pt
 # Force the next section to start on a new page — belt-and-suspenders for cross-viewer reliability
-# (pageBreakBefore alone is unreliable across viewers; --type pagebreak alone also flaked in earlier rounds)
+# (pageBreakBefore alone is unreliable across viewers; --type pagebreak alone also flakes)
 officecli add "$FILE" /body --type pagebreak
 officecli set "$FILE" "/body/p[last()]" --prop pageBreakBefore=true
 ```
@@ -355,12 +352,12 @@ officecli set "$FILE" "/body/p[last()]" --prop pageBreakBefore=true
 **(b) Page X of Y footer — composite PAGE + NUMPAGES.** Add the footer paragraph first, then three child ops build `Page <X> of <Y>` in one paragraph. Visual outcome: footer reads `Page 3 of 12` with both numbers live. This is the official `officecli help docx footer` recipe.
 
 ```bash
-officecli add "$FILE" / --type footer --prop type=default --prop text="Page " --prop alignment=center --prop size=9pt
+officecli add "$FILE" / --type footer --prop type=default --prop text="Page " --prop align=center --prop size=9pt
 officecli add "$FILE" "/footer[1]/p[1]" --type field --prop fieldType=page
 officecli add "$FILE" "/footer[1]/p[1]" --type run --prop text=" of "
 officecli add "$FILE" "/footer[1]/p[1]" --type field --prop fieldType=numpages
 # Verify the 3 field fragments exist:
-officecli get "$FILE" "/footer[1]/p[1]" --depth 1 | grep -c fldChar   # expect ≥ 4 (begin+separate+end per field)
+officecli get "$FILE" "/footer[1]/p[1]" --depth 1 | grep -o fldChar | wc -l   # expect ≥ 4 (begin+separate+end per field; DON'T use `grep -c` — single-line XML always returns 1)
 ```
 
 **(c) Header row with fill and white bold text.** Don't chain `shd.fill=` (broken). Order matters: populate the header row's cell text FIRST (runs don't exist in empty cells, so a `set .../tc[N]/p[1]/r[1]` on empty cells errors with "No r found"), THEN apply cell fill, THEN run formatting. Visual outcome: dark-blue header band with white bold labels, zebra-striped data rows.
@@ -380,14 +377,14 @@ for row in 3 5; do for col in 1 2 3 4; do
 done; done
 ```
 
-Verified: without step 1, step 2's run-level `set` errors because empty cells have no `r`. This is the most common trip in R1 table builds.
+Verified: without step 1, step 2's run-level `set` errors because empty cells have no `r`. This is the most common trip in table builds.
 
 **(d) Financial table style — right-align numbers, bold totals, bottom border on total row.** Numbers read right-aligned; totals read bold; a `pbdr.bottom` under the last data row visually separates the total:
 
 ```bash
 # Right-align number columns (cols 2-4), paragraph-level
 for row in 2 3 4 5; do for col in 2 3 4; do
-  officecli set "$FILE" "/body/tbl[1]/tr[$row]/tc[$col]/p[1]" --prop alignment=right
+  officecli set "$FILE" "/body/tbl[1]/tr[$row]/tc[$col]/p[1]" --prop align=right
 done; done
 # Total row (row 5) bold + bottom border on the data paragraphs
 for col in 1 2 3 4; do
@@ -407,7 +404,7 @@ officecli add "$FILE" "/body/tbl[1]/tr[1]/tc[1]" --type paragraph --prop text="F
 officecli set "$FILE" "/body/tbl[1]/tr[1]/tc[1]/p[1]" --prop listStyle=bullet
 ```
 
-If your seed paragraph lands at the bottom instead of the top (row-level `set c1=` sometimes appends), re-order: `officecli move "$FILE" "/body/tbl[1]/tr[1]/tc[1]/p[N]" --index 0`. Tester #1 shipped SWOT + risk matrix + scenario matrix with this pattern after `\n` literal failed.
+If your seed paragraph lands at the bottom instead of the top (row-level `set c1=` sometimes appends), re-order: `officecli move "$FILE" "/body/tbl[1]/tr[1]/tc[1]/p[N]" --index 0`.
 
 **(f) Static TOC fallback (cross-viewer reliability).** When delivering to viewers that don't auto-recalculate fields, the live TOC field renders as the literal `Update field to see table of contents`. No CLI-only pipeline can pre-populate a TOC field the way Word does on save — this is a hard black hole, not a recipe gap. Workaround: remove the TOC field, keep the `TOCHeading` style paragraph as a visible header, then hand-write one paragraph per heading with a literal dot-leader line. Visual outcome: a plain text TOC with dots trailing to page numbers, no live field, ships correctly in any reader.
 
@@ -425,11 +422,11 @@ officecli add "$FILE" /body --type paragraph --prop text="2. Market Diagnosis ..
 # ... one per heading
 ```
 
-Tester #1 shipped 13 static TOC lines this way after the live-field option left the literal prompt visible to the reader. Page numbers are manually set — open the file in Word once to learn the real numbers, then fill. The trade-off: no click-to-jump, but no placeholder text either. `add --type toc` (live field) remains correct for recipients whose viewer recalculates on open (or who will press F9) — this recipe is for everyone else.
+Use this when the live-field option leaves the literal prompt visible to the reader. Page numbers are manually set. For approximate pagination preview: `officecli view "$FILE" html` and read the returned HTML file to eyeball layout. For exact page numbers: open in your target viewer (Word / WPS / etc.) — precise numbers only come from the final render in that viewer. This recipe assumes you can get approximate page positions from the document structure. `add --type toc` (live field) remains correct for recipients whose viewer recalculates on open (or who will press F9) — this recipe is for everyone else.
 
 ### Forcing page breaks — belt-and-suspenders for cross-viewer reliability
 
-Two mechanisms exist; **neither alone is reliable across every viewer**. Pagination is heuristic — depending on the viewer and preceding content state, it may silently ignore `<w:pageBreakBefore/>` OR render `<w:br w:type="page"/>` as a soft break. Cross-round testers observed the two failures in opposite directions. Apply BOTH on every H1 you want on a fresh page:
+Two mechanisms exist; **neither alone is reliable across every viewer**. Pagination is heuristic — depending on the viewer and preceding content state, it may silently ignore `<w:pageBreakBefore/>` OR render `<w:br w:type="page"/>` as a soft break. The two failures occur in opposite directions depending on the viewer. Apply BOTH on every H1 you want on a fresh page:
 
 ```bash
 # 1. Prepend a pagebreak element BEFORE the heading
@@ -438,20 +435,20 @@ officecli add "$FILE" /body --type pagebreak --index <N>
 officecli set "$FILE" "/body/p[<N+1>]" --prop pageBreakBefore=true
 ```
 
-Neither alone guarantees a break in every client. Observed on officecli 1.0.60: `pageBreakBefore` alone left 9 chapters mashed into 6 pages in one viewer; `--type pagebreak` alone flaked in earlier rounds. The redundant pair closes the gap.
+Neither alone guarantees a break in every client. Observed on officecli 1.0.60: `pageBreakBefore` alone left 9 chapters mashed into 6 pages in one viewer; `--type pagebreak` alone has also been seen to flake, especially when the file is PDF-converted by a headless renderer. **Recommendation: prefer `pageBreakBefore=true` (more reliable across viewers) and add `--type pagebreak` as the secondary guarantee.** The redundant pair closes the gap.
 
-**`break=newPage` alias (1.0.61+).** The paragraph / section prop `--prop break=newPage` is a shorter alias that maps to `pageBreakBefore=true` (accepts `newPage | page | nextPage | pageBreak`). Same underlying XML, same behavior — so the belt-and-suspenders rule still applies: use `add --type pagebreak` before the heading AND set `pageBreakBefore=true` / `break=newPage` on the heading paragraph itself.
+**`break=newPage` alias (1.0.61+).** The paragraph / section prop `--prop break=newPage` is a shorter alias that maps to `pageBreakBefore=true` (accepts `newPage | page | nextPage | pageBreak`). Same underlying XML, same behavior — so the belt-and-suspenders rule still applies: use `add --type pagebreak` before the heading AND set `pageBreakBefore=true` / `break=newPage` on the heading paragraph itself. ⚠️ `pageBreakBefore`/`break=` passed to `add` may be silently dropped — always apply it via a subsequent `set`.
 
-Apply to every H1, the TOC heading, and the cover-closing paragraph. Preview via `view html --browser` and count pages to confirm.
+Apply to every H1, the TOC heading, and the cover-closing paragraph. Preview via `view html` (read the returned HTML path) and count pages to confirm.
 
 ### Template delivery — separating Template Notes from end-user content
 
 HR / legal / vendor templates commonly carry internal-only guidance ("replace `{{CompanyName}}`", "list of expected merge columns") that must NOT ship to the end recipient. Two working patterns:
 
-- **Trailing "Template Notes" section with a clear heading.** Add a `Heading 1` titled "Template Notes for HR Users" (or similar) at the bottom of the document, then all instruction paragraphs underneath. Before distribution, `officecli remove doc.docx /body/p[N]` every paragraph from the heading downward, or `officecli query doc.docx 'paragraph[style=Heading1]:contains("Template Notes")'` to locate the boundary. A visible heading makes the section unmistakable at review time and scriptable at delivery time. This is what Tester #2 shipped.
+- **Trailing "Template Notes" section with a clear heading.** Add a `Heading 1` titled "Template Notes for HR Users" (or similar) at the bottom of the document, then all instruction paragraphs underneath. Before distribution, `officecli remove "$FILE" /body/p[N]` every paragraph from the heading downward, or `officecli query "$FILE" 'paragraph[style=Heading1]:contains("Template Notes")'` to locate the boundary. A visible heading makes the section unmistakable at review time and scriptable at delivery time.
 - **Bookmark-bounded internal section.** Wrap the guidance between two bookmarks (`add --type bookmark --prop name=__template_notes_start` / `_end`) on the paragraphs before and after the internal content. At delivery, `raw-set` removes everything between the two anchors in one pass. Slightly more fragile but more robust to accidental heading edits.
 
-Either way, the ship-check is: after removal, `officecli query doc.docx 'p:contains("Template Notes")'` returns empty AND `query 'p:contains("{{")` (literal tokens the guide referenced) also returns empty. If the template notes paragraph survives, a downstream employee will read internal HR language. Treat this as a delivery gate for template builds.
+Either way, the ship-check is: after removal, `officecli query "$FILE" 'p:contains("Template Notes")'` returns empty AND `query 'p:contains("{{")` (literal tokens the guide referenced) also returns empty. If the template notes paragraph survives, a downstream employee will read internal HR language. Treat this as a delivery gate for template builds.
 
 ### Advanced / specialty topics (skip if you are writing a report)
 
@@ -460,13 +457,15 @@ Reports, memos, letters, proposals, and HR templates don't need this section —
 **Equations and footnotes.** `--type equation` takes LaTeX — `\frac`, `\sum`, Greek letters, `\mathit` render; `\mathcal` emits invalid XML (use `\mathit` instead). Footnotes auto-number by paragraph index.
 
 ```bash
-officecli add doc.docx /body --type equation --prop formula="\\frac{a}{b} + \\sum_{i=1}^{n} x_i"
-officecli add doc.docx "/body/p[3]" --type footnote --prop text="See Appendix A for methodology."
+officecli add "$FILE" /body --type equation --prop formula="\\frac{a}{b} + \\sum_{i=1}^{n} x_i"
+officecli add "$FILE" "/body/p[3]" --type footnote --prop text="See Appendix A for methodology."
 ```
 
 `--type equation` always creates a standalone `/body/oMathPara[N]` block — never an inline run, even if you pass a paragraph path. For inline math inside running text, `raw-set` an `<m:oMath>` (not `<m:oMathPara>`) as a run child. Bibliography with hanging indent: `firstLineIndent=-720 indent=720` per entry (dotted `ind.hanging` is not canonical — see Known Issues).
 
 **docx vs academic-paper skill — when to switch.** Stay in docx for: chapter drafts, ≤ 3 footnotes, ≤ 2 equations, no bibliography, no cross-refs. Switch to `academic-paper` when you need ANY of: citation styles (APA / Chicago / Harvard / IEEE / GB 7714), in-text ↔ reference list auto-linking, numbered equations with `\ref`, "List of Figures", auto-updating "see Section 3.2" cross-refs, or author-year ↔ numeric style toggles.
+
+**docx vs word-form skill — when to switch.** Stay in docx for any report, letter, memo, or proposal. Switch to `officecli-word-form` when the document's purpose is **data capture** — fillable intake forms, contracts / SOWs with user-fill slots, HR onboarding forms, medical questionnaires, compliance checklists, mail-merge templates. Those carry `<w:sdt>` content controls, `<w:ffData>` legacy form fields, or `documentProtection=forms`, none of which this skill teaches.
 
 **Comments and tracked changes.** Bulk accept/reject: `set / --prop accept-changes=all` (or `reject-changes=all`). Locate individual changes with `query ins` and `query del` — NOT `query trackedchange` (CLI bug C-D-1). Adding an `<w:ins>` or `<w:del>` from scratch requires `raw-set`. Add a comment with `add "/body/p[4]" --type comment --prop author=... --prop text=...`. Reply threading (`parentId`) and `done=true` resolution are UNSUPPORTED — see C-D-2 / C-D-5 for `raw-set` workarounds.
 
@@ -490,62 +489,61 @@ Your first document is almost never correct. Treat QA as a bug hunt, not a confi
 
 ### Minimum cycle before "done"
 
-1. `officecli view doc.docx issues` — empty paras, missing alt text, formatting anomalies.
-2. `officecli view doc.docx outline` — heading hierarchy, TOC presence, section count. No skipped levels (H1 → H3).
-3. `officecli view doc.docx text --max-lines 400` — content pass: typos, stray `\$` / `\t` / `\n` literals, placeholder tokens.
+1. `officecli view "$FILE" issues` — empty paras, missing alt text, formatting anomalies.
+2. `officecli view "$FILE" outline` — heading hierarchy, TOC presence, section count. No skipped levels (H1 → H3).
+3. `officecli view "$FILE" text --max-lines 400` — content pass: typos, stray `\$` / `\t` / `\n` literals, placeholder tokens.
 4. Query for known classes of defect:
    ```bash
-   officecli query doc.docx 'p:contains("lorem")'
-   officecli query doc.docx 'p:contains("xxxx")'
-   officecli query doc.docx 'p:contains("TODO")'
-   officecli query doc.docx 'p:contains("{{")'
-   officecli query doc.docx 'p:empty'
-   officecli query doc.docx 'image:no-alt'
+   officecli query "$FILE" 'p:contains("lorem")'
+   officecli query "$FILE" 'p:contains("xxxx")'
+   officecli query "$FILE" 'p:contains("TODO")'
+   officecli query "$FILE" 'p:contains("{{")'
+   officecli query "$FILE" 'p:empty'
+   officecli query "$FILE" 'image:no-alt'
    ```
-5. `officecli validate doc.docx` — schema check. Close any resident first (see Known Issues).
-6. **Visual pass — walk every page in the browser preview.** `officecli view doc.docx html --browser` renders the document. Walk every page. "validate pass" is not delivery; "the preview looks like a real document" is delivery.
+5. `officecli validate "$FILE"` — schema check. Close any resident first (see Known Issues).
+6. **Visual pass — walk every page via the HTML preview.** Run `officecli view "$FILE" html` and Read the returned HTML path. Walk every page. "validate pass" is not delivery; "the preview looks like a real document" is delivery. For human review, run `officecli watch "$FILE"` (user opens the live preview at their own discretion) or have them open the `.docx` directly in Word / WPS.
 7. If anything failed, fix, then **rerun the full cycle**. One fix commonly creates another problem.
 
 ### Delivery Gate (run before handing off — any failure = REJECT, do NOT deliver)
 
-The three checks below are the automated half of the QA cycle; they catch the five defect classes that burnt R1 testers (228 `shd` schema errors, shell-escape leak into cover titles, TOC placeholder visible to reader, static-text footer instead of live PAGE, unreplaced template tokens). Copy-paste this block, substitute your file, and refuse to declare done until every command prints OK.
+Copy-paste this block, set `FILE`, and refuse to declare done until every gate prints its OK line. `REJECT` aborts with exit 1 — the file is NOT deliverable.
 
 ```bash
-FILE="doc.docx"
+FILE="your-file.docx"
 
 # Gate 1 — schema. Any error = REJECT.
 officecli close "$FILE" 2>/dev/null
-officecli validate "$FILE" | grep -q "no errors found" || { echo "REJECT: validate failed"; exit 1; }
+officecli validate "$FILE" | grep -q "no errors found" || { echo "REJECT Gate 1: validate failed"; exit 1; }
+echo "Gate 1 OK"
 
-# Gate 2 — token leak via CLI text-layer view. Greps for tokens that must NEVER appear in a delivered file.
-officecli view "$FILE" text | \
-  grep -nE '(\$[A-Za-z_]+\$|\{\{[^}]+\}\}|<TODO>|xxxx|lorem|Update field to see|\\[\$tn])' && \
-  { echo "REJECT: token leak (see line(s) above)"; exit 1; } || echo "Gate 2 OK"
+# Gate 2 — token leak (shell-escape / template tokens / TOC placeholder / literal \$ \t \n).
+# COUNT-then-if pattern: grep -c never false-PASSes.
+LEAK=$(officecli view "$FILE" text | grep -cE '(\$[A-Za-z_]+\$|\{\{[^}]+\}\}|<TODO>|xxxx|lorem|Update field to see|\\[\$tn])')
+[ "$LEAK" -eq 0 ] && echo "Gate 2 OK" || { echo "REJECT Gate 2: $LEAK token-leak line(s)"; officecli view "$FILE" text | grep -nE '(\$[A-Za-z_]+\$|\{\{[^}]+\}\}|<TODO>|xxxx|lorem|Update field to see|\\[\$tn])'; exit 1; }
 
-# Gate 3 — live-field structural spot-check. A footer showing the literal word "Page" with no live PAGE field is a static run.
-# Use `query` (operates on semantic elements) OR `raw` (inspects the XML part) — both reveal fldChar.
-officecli query "$FILE" 'field[fieldType=page]' | grep -q . || \
-  officecli raw "$FILE" "/footer[1]" 2>/dev/null | grep -q fldChar || \
-  { echo "REJECT: no live PAGE field found"; exit 1; }
+# Gate 3 — live PAGE field exists when a footer is expected.
+FLD=$(officecli query "$FILE" 'field[fieldType=page]' --json | jq '.data.results | length')
+[ "$FLD" -ge 1 ] && echo "Gate 3 OK" || { echo "REJECT Gate 3: no live PAGE field"; exit 1; }
 echo "Delivery Gate PASS"
 ```
 
-The greps above correspond one-to-one with R1 failures: `$...$` catches shell-escape leaks (Tester #1's `USM` after `US$22B` got eaten), `{{...}}` catches unmigrated template tokens, `Update field to see` catches the unpopulated-TOC placeholder, `\$`/`\t`/`\n` catches shell-escape literals dropped into text. Every gate must print its success message before you declare the file delivered.
+Every gate must print its OK line before you declare the file delivered.
 
 ### Field / cached-value spot-check
 
 TOC, PAGE, NUMPAGES, MERGEFIELD are all fields with **cached values** that may be stale or empty at write time. Confirm existence by structure, not by text.
 
-- [ ] Footer PAGE field: `get /footer[N] --depth 3` lists the runs that carry the `fldChar begin` / `instrText` / `fldChar separate` / cached value / `fldChar end` chain — expect ≥ 5 runs for a single PAGE, ≥ 11 for composite "Page X of Y". For the underlying `<w:fldChar>` XML, use `officecli raw doc.docx "/footer[1]" | grep -c fldChar`, or run `officecli query doc.docx 'field[fieldType=page]'` for a semantic match. If you see a single run with text `"Page"`, the field is missing — re-add with `--prop field=page`.
+- [ ] Footer PAGE field: `get /footer[N] --depth 3` lists the runs that carry the `fldChar begin` / `instrText` / `fldChar separate` / cached value / `fldChar end` chain — expect ≥ 5 runs for a single PAGE, ≥ 11 for composite "Page X of Y". For the underlying `<w:fldChar>` XML, use `officecli raw "$FILE" "/footer[1]" | grep -o fldChar | wc -l` (NOT `grep -c` — single-line XML returns 1, false-PASS risk), or run `officecli query "$FILE" 'field[fieldType=page]'` for a semantic match. If you see a single run with text `"Page"`, the field is missing — re-add with `--prop field=page`.
 - [ ] TOC: `get /body/toc[1] --depth 2` must show field structure. In some viewers the TOC shows `1 1 1 1` for page numbers or the literal `Update field to see table of contents` until recalculated (see TOC delivery step).
 - [ ] MERGEFIELD: `query 'field[fieldType=mergefield]'` — one entry per template slot. No literal `{{name}}` text elsewhere.
 - [ ] SEQ / PAGEREF (if your document uses them via raw-set): confirm each `<w:fldChar>` chain exists by `raw`-inspecting the `document.xml`.
 
 **Cross-viewer caveat on PAGE fields**: some viewers render PAGE field text as the literal word "Page" (no number) until the reader recalculates. This is a [RENDERER-BUG], not a skill defect. Judge by whether `fldChar` children exist, not by whether the visible text shows a digit.
 
-### Fresh eyes (subagent)
+### Fresh eyes
 
-You are reading the same document you wrote. Spawn a subagent with the single instruction: "Open `doc.docx`, list every problem you see — typos, formatting inconsistencies, missing headings, orphaned paragraphs, placeholder text that looks like content." Fresh eyes find what the builder's eyes confirm.
+When you finish a document, open it fresh. Read `view text` / HTML preview top-to-bottom as if you are a new reviewer — look for typos, formatting inconsistencies, missing headings, orphaned paragraphs, placeholder text that looks like content.
 
 ### Honest limit
 
@@ -556,7 +554,7 @@ You are reading the same document you wrote. Spawn a subagent with the single in
 - placeholder tokens rendered as body text
 - an empty first-page footer attached to a document that has no cover
 
-The checklist above — especially the browser-preview visual pass and the field structure check — is how you catch what validation can't.
+The checklist above — especially the HTML-preview visual pass and the field structure check — is how you catch what validation can't.
 
 ### QA display notes (don't chase these)
 
@@ -573,7 +571,7 @@ Organized by source. When something "looks broken", attribute it before chasing 
 
 ### Schema-invalid-on-emit — disabled APIs + working forms
 
-These props exit 0 at write time but produce XML that fails `validate` on close. All three are from real R1 failures. Use the working form on the right.
+These props exit 0 at write time but produce XML that fails `validate` on close. Use the working form on the right.
 
 | Disabled (causes schema error)                    | Working form                                                                                   | Where it hurts                                                                                                                               |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -589,7 +587,7 @@ grep -nE '(shd\.fill|ind\.firstLine|border\.(top|bottom|left|right)[^a-z])' comm
 # Any hit = rewrite the command with the working form on the right.
 ```
 
-`raw-set` escape hatch if neither form fits: inject `<w:shd w:val="clear" w:color="auto" w:fill="1F4E79"/>` or reorder `<w:ind>` / `<w:jc>` after emit. Post-patching with a Python `zipfile` + XML edit is acceptable; Tester #3 did exactly this to ship.
+`raw-set` escape hatch if neither form fits: inject `<w:shd w:val="clear" w:color="auto" w:fill="1F4E79"/>` or reorder `<w:ind>` / `<w:jc>` after emit. Post-patching with a Python `zipfile` + XML edit is acceptable.
 
 ### Shell escape — three layers to keep separate
 
@@ -618,7 +616,7 @@ Specialty-only (skip unless you hit them):
 
 ### Renderer quirks (cross-viewer)
 
-`officecli view html --browser` is the right tool for structural QA (overflow, placeholder leakage, hierarchy, layout). Some features vary by the viewer the end user opens the file in. Observed divergences, all [RENDERER-BUG]:
+`officecli view html` is the right tool for structural QA (overflow, placeholder leakage, hierarchy, layout) — Read the returned HTML path. Some features vary by the viewer the end user opens the file in. Observed divergences, all [RENDERER-BUG]:
 
 - **PAGE field may render as literal "Page" (no number)** in some viewers until the reader recalculates. Judge field presence by `get --depth 3` finding `<w:fldChar>`, not by eyeballing a digit.
 - **TOC cached page numbers may read "1 1 1 1"** until a human opens the file and recalculates (F9 in Word).
@@ -644,6 +642,7 @@ Before calling a color, field, or chart broken, open the file in the user's targ
 | Pitfall                                                                   | Correct approach                                                                                                                                                                                                                                        |
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--index` vs `[N]`                                                        | `--index` is 0-based (array convention); `[N]` paths are 1-based (XPath)                                                                                                                                                                                |
+| Multiple `add --index N` with the same N                                  | Each insert shifts later content down; reusing the same N puts subsequent items BEFORE earlier ones. Insert in reverse order, or use `move --after/--before` anchored on `paraId`                                                                       |
 | Unquoted `[N]` in zsh/bash                                                | Quote every path: `"/body/p[1]"`                                                                                                                                                                                                                        |
 | `[last]` as predicate                                                     | Must be `[last()]` with parens. `/body/tbl[last()]/tr[1]` valid; `[last]` throws "Malformed path segment"                                                                                                                                               |
 | Raw twips in spacing                                                      | Use unit-qualified values: `12pt`, `0.5cm`, `1.5x`                                                                                                                                                                                                      |

@@ -27,6 +27,8 @@ Verify with `officecli --version`. If still not found after install, open a new 
 
 **L1 (read) → L2 (DOM edit) → L3 (raw XML)**. Always prefer higher layers. Add `--json` for structured output.
 
+**Before doc work, check Specialized Skills** (bottom of this file). Fundraising decks, academic papers, financial models, dashboards, and Morph animations need their own skill loaded first — `load_skill` once, then proceed.
+
 ---
 
 ## Help System (IMPORTANT)
@@ -257,11 +259,11 @@ officecli add <file> <parent> --from <path>                               # clon
 
 **Element types (with aliases):**
 
-| Format   | Types                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **pptx** | slide, shape (textbox), picture (image/img — SVG supported), chart, table, row (tr), connector (connection/line), group, video (audio/media), equation (formula/math), notes, paragraph (para), run, zoom (slidezoom), ole (oleobject/object/embed), placeholder (phType=title/body/subtitle/footer/...)                                                                                                                                                                                                                                                                               |
-| **docx** | paragraph (para), run, table, row (tr), cell (td), image (picture/img — SVG supported), header, footer, section, bookmark, comment, footnote, endnote, formfield (text/checkbox/dropdown), sdt (contentcontrol), chart, equation, field (28 types incl. mergefield/ref/seq/styleref/docproperty/if), hyperlink, style, toc, watermark, break (pagebreak/columnbreak), ole, **num / abstractNum / lvl** (numbering/list system), **tab** (paragraph or paragraph/table style tab stops). Document protection: `set / --prop protection=forms\|readOnly\|comments\|trackedChanges\|none` |
-| **xlsx** | sheet, row, cell, chart (incl. pareto with auto-sort + cumulative-%), image (picture — SVG supported), comment, table (listobject), namedrange (definedname), pivottable (pivot, supports calculatedField), sparkline, validation (datavalidation), autofilter, shape, textbox, databar/colorscale/iconset/formulacf/cellIs/topN/aboveAverage (conditional formatting), ole, csv (tsv). `value="=SUM(...)"` auto-detects as formula. Formulas auto-evaluated on write (150+ functions). Chart/picture/shape/slicer accept `anchor=A1:E10`.                                             |
+| Format   | Types                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **pptx** | slide (incl. hidden), shape (textbox — font.latin/ea/cs, direction=rtl), picture (SVG, brightness/contrast/glow/shadow), chart (direction=rtl), table (cell direction=rtl), row (tr), connector (connection/line), group, video (audio/media, trim), equation (formula/math), notes (direction=rtl, lang), comment (RTL via U+200F bidi mark; full CRUD via /slide[N]/comment[M]), paragraph (para), run, zoom (slidezoom), ole (oleobject/object/embed), placeholder (phType=title/body/subtitle/footer/...). slideLayout/slideMaster direction inheritance.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **docx** | paragraph (para — direction/font.latin/ea/cs, bold.cs/italic.cs/size.cs for RTL/CJK; lang.latin/ea/cs BCP-47 tags on run; wordWrap toggle), run, table (direction=rtl → bidiVisual), row (tr), cell (td), image (picture/img — SVG supported), header (direction), footer (direction), section (pageNumFmt full ECMA-376 enum incl. Hindi/Arabic/Thai/CJK numerals; direction=rtl on Add/Set; rtlGutter; pgBorders=box shorthand), bookmark, comment, footnote, endnote, formfield (text/checkbox/dropdown), sdt (contentcontrol), chart, equation, field (28 types incl. mergefield/ref/seq/styleref/docproperty/if), hyperlink, style (direction round-trip), toc, watermark, break (pagebreak/columnbreak), ole, **num / abstractNum / lvl** (numbering/list system), **tab** (paragraph or paragraph/table style tab stops). docDefaults.rtl document-wide override; `get /` exposes `locale`. Document protection: `set / --prop protection=forms\|readOnly\|comments\|trackedChanges\|none` |
+| **xlsx** | sheet (visible/hidden/veryHidden, print margins, printTitleRows/Cols, rightToLeft sheetView, cascade-aware rename), row, cell (type=richtext+runs, merge=range/sweep, direction=rtl, phonetic guide on add), chart (direction=rtl on per-axis txPr / title; incl. pareto), image (picture — SVG), comment (direction=rtl), table (listobject), namedrange (definedname, volatile, `[@name=X]` selector), pivottable (pivot, calculatedField), sparkline, validation (datavalidation), autofilter, shape, textbox, databar/colorscale/iconset/formulacf/cellIs/topN/aboveAverage (conditional formatting), ole, csv (tsv). Query supports `merge`/`mergedrange` aliases for `mergeCell`. Workbook: password. `value="=SUM(...)"` auto-detects as formula. Chart/picture/shape/slicer accept `anchor=A1:E10`.                                                                                                                                                                                       |
 
 ### Pivot tables (xlsx)
 
@@ -369,19 +371,40 @@ officecli add-part <file> <parent>                   # create new document part 
 
 ## Specialized Skills
 
-For complex scenarios, load the dedicated skill from `skills/<skill-name>/SKILL.md`:
+`officecli load_skill <name>` — output is a SKILL.md, follow its rules.
 
-| Skill                       | Scope                                                        |
-| --------------------------- | ------------------------------------------------------------ |
-| `officecli-docx`            | Word documents — reports, letters, memos                     |
-| `officecli-academic-paper`  | Academic papers with TOC, equations, footnotes, bibliography |
-| `officecli-pptx`            | Presentations — general slide decks                          |
-| `officecli-pitch-deck`      | Investor/product/sales decks with charts and callouts        |
-| `morph-ppt`                 | Morph-animated cinematic presentations                       |
-| `morph-ppt-3d`              | 3D Morph effects (camera, depth)                             |
-| `officecli-xlsx`            | Excel — workbooks, formulas, pivots                          |
-| `officecli-financial-model` | Financial models, scenarios, projections                     |
-| `officecli-data-dashboard`  | CSV/tabular data → Excel dashboards with charts, sparklines  |
+**Loading rule**:
+
+- Pick the most specific match in "When to use"; if none fits, load the format default (`word` / `pptx` / `excel`).
+- Scenes already contain the format default's rules — load **one** skill per artifact, never stack.
+- Loaded rules persist across turns; don't re-load each reply.
+- Two distinct artifacts → two separate loads.
+
+### Word (.docx)
+
+| Name             | When to use                                                                                                                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `word`           | Reports, letters, memos, proposals, generic documents                                                                                                                                                            |
+| `academic-paper` | Journal / conference / thesis: APA / Chicago / IEEE / MLA citations, equations, SEQ + PAGEREF cross-refs, multi-column journal layout, bibliography. NOT for business reports or letters (route those to `word`) |
+
+### PowerPoint (.pptx)
+
+| Name           | When to use                                                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pptx`         | Generic decks: board reviews, sales decks, all-hands, product launches                                                                         |
+| `pitch-deck`   | **Fundraising only** — seed / Series A-C / SAFE / convertible / strategic raise. NOT for sales / product / board decks (route those to `pptx`) |
+| `morph-ppt`    | Cinematic Morph-animated presentations. NOT for static decks (route those to `pptx`)                                                           |
+| `morph-ppt-3d` | 3D Morph: GLB models, camera moves, depth. NOT for 2D-only Morph (route those to `morph-ppt`)                                                  |
+
+### Excel (.xlsx)
+
+| Name              | When to use                                                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `excel`           | Generic workbooks, formulas, pivots, trackers                                                                                            |
+| `financial-model` | Financial models, scenarios, projections. NOT for general data analysis (route those to `excel`)                                         |
+| `data-dashboard`  | CSV/tabular data → KPI / analytics / executive dashboards with charts and sparklines. NOT for raw data tracking (route those to `excel`) |
+
+Example: a fundraising deck task → `officecli load_skill pitch-deck` → use the printed rules.
 
 ---
 
