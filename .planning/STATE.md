@@ -6,20 +6,31 @@
 
 | Field | Value |
 |-------|-------|
-| Status | Active — Initialization complete |
-| Milestone | v1 |
-| Current Phase | None (not started) |
+| Status | Active — Milestone v2 started |
+| Milestone | v2 — Fork Sync Engine |
+| Current Phase | Not started (planning) |
 | Last Updated | 2026-05-06 |
 
 ## Milestones
 
+### v2 — Fork Sync Engine
+
+**Goal**: Módulo reutilizável de sincronização automática de fork com upstream oficial — verificação diária às 08:00, merge automático ao detectar nova release, e intervenção de IA via Telegram para conflitos.
+
+**Requirements**: 11 total (FSYNC-01 a FSYNC-11)
+
+**Phases**: 4
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 1 | Fork Sync Core | Not started |
+| 2 | AI Decision Engine | Not started |
+| 3 | Telegram Approval Flow | Not started |
+| 4 | Module Packaging | Not started |
+
 ### v1 — Web Directory Selector + Build Pipeline
 
-**Goal**: Enable visual directory selection on WebUI and produce production deployables.
-
-**Requirements**: 9 total (4 WEB-FS, 3 BUILD, 2 SEC)
-
-**Phases**: 2 (Coarse granularity)
+**Status**: In progress (Phase 1 not started)
 
 | Phase | Name | Status |
 |-------|------|--------|
@@ -30,16 +41,17 @@
 
 | Date | Session | Work Done |
 |------|---------|-----------|
-| 2026-05-06 | Initial | Codebase mapping (7 docs), project initialization, research (4 docs + SUMMARY), requirements, roadmap |
+| 2026-05-06 | Initial | Codebase mapping, project initialization, research, requirements, roadmap |
+| 2026-05-06 | v2 init | Fork Sync Engine milestone initialized |
 
 ## Notes
 
 - Fork URL: https://github.com/giovannimnz/AionUi
-- WebUI hosted on Apache2 (Linux server)
-- `DirectorySelectionModal` already exists and uses `/api/directory/browse`
-- Key gap: `WorkspaceFolderSelect` returns text input on web instead of modal
-- No new dependencies expected for Phase 1
-- Phase 2 may need Apache2 deployment config updates
+- Upstream official: https://github.com/QuantumNous/AionUi
+- gh CLI disponível na máquina ubuntu
+- Telegram: Atius Capital Group (chat_id=-1003797723446)
+- Cron: `0 8 * * *` (diário às 08:00)
+- Sync só dispara merge quando nova release é detectada no upstream
 
 ---
 

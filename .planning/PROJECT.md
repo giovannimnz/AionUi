@@ -87,6 +87,32 @@ See: `.planning/codebase/STRUCTURE.md`
 
 See: `.planning/codebase/CONCERNS.md`
 
+## Current Milestone: v2 — Fork Sync Engine
+
+**Goal:** Módulo reutilizável de sincronização automática de fork com upstream oficial — verificação diária às 08:00, merge automático ao detectar nova release, e intervenção de IA via Telegram para conflitos.
+
+**Target features:**
+- Fork Sync Core (FSYNC-01 a FSYNC-04)
+- AI Decision Engine (FSYNC-05 a FSYNC-07)
+- Telegram Approval Flow (FSYNC-08 a FSYNC-09)
+- Module Packaging (FSYNC-10 a FSYNC-11)
+
+## Requirements
+
+### Active
+
+- [ ] **FSYNC-01**: Cron job diário às 08:00 que verifica nova release no upstream
+- [ ] **FSYNC-02**: Detecta nova versão/release via GitHub API (tag ou release)
+- [ ] **FSYNC-03**: Pull das changes upstream com rebase/merge preservando overrides locais
+- [ ] **FSYNC-04**: Auto commit e push das alterações mergeadas para branch do fork
+- [ ] **FSYNC-05**: AI Decision Engine detecta conflitos de merge e impacto em alterações customizadas
+- [ ] **FSYNC-06**: Análise de diff pela IA antes de aplicar merge
+- [ ] **FSYNC-07**: Notificação via Telegram com contexto + recomendação quando há impacto
+- [ ] **FSYNC-08**: Telegram approval flow — comandos para approve/reject/adjust
+- [ ] **FSYNC-09**: Grava decisão do usuário e executa ação (merge, abort, ou ajusta)
+- [ ] **FSYNC-10**: Módulo reutilizável em `~/fork-sync/` com templates por projeto
+- [ ] **FSYNC-11**: Config por projeto (`sync.yaml`) — upstream URL, branch, paths protegidos, tokens
+
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.

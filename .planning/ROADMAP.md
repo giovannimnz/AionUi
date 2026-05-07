@@ -4,103 +4,206 @@
 
 ## Overview
 
-**2 phases** | **9 requirements mapped** | All v1 requirements covered ✓
+**4 phases** | **11 requirements mapped** | All v2 requirements covered ✓
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 1 | Web Directory Selector | Enable visual folder selection on WebUI by wiring `DirectorySelectionModal` into `WorkspaceFolderSelect` | WEB-FS-01, WEB-FS-02, WEB-FS-03, WEB-FS-04 | 4 |
-| 2 | Build Pipeline & Hardening | Produce deployable web/server assets and harden server-side path validation | BUILD-01, BUILD-02, BUILD-03, SEC-01, SEC-02 | 5 |
+| 1 | Fork Sync Core | Script base que detecta release e faz merge do upstream | FSYNC-01, FSYNC-02, FSYNC-03, FSYNC-04 | 4 |
+| 2 | AI Decision Engine | IA analisa diffs e detecta impacto em alterações customizadas | AIDEC-01, AIDEC-02, AIDEC-03 | 3 |
+| 3 | Telegram Approval Flow | Bot que recebe comandos e processa decisões de merge | TAF-01, TAF-02, TAF-03 | 3 |
+| 4 | Module Packaging | Empacotar como módulo reutilizável com setup e templates | MOD-01, MOD-02, MOD-03 | 3 |
 
 ---
 
-## Phase 1: Web Directory Selector
+## Phase 1: Fork Sync Core
 
-**Goal**: WebUI renders a visual directory picker (not a text input) on session start.
+**Goal**: Script base que verifica upstream diariamente às 08:00, detecta nova release, e faz merge automático.
 
 ### Requirements
 
-- [ ] WEB-FS-01: WebUI displays visual directory selector on session start
-- [ ] WEB-FS-02: `WorkspaceFolderSelect` renders full browse UI on web
-- [ ] WEB-FS-03: Desktop vs web branching in `handleBrowse()`
-- [ ] WEB-FS-04: Modal path validated before `onChange` call
+- [ ] FSYNC-01: Cron job diário às 08:00
+- [ ] FSYNC-02: Detecta nova versão via GitHub API
+- [ ] FSYNC-03: Pull + merge preservando overrides locais
+- [ ] FSYNC-04: Auto commit e push
 
-### Files to Modify
+### Files to Create
 
-- `src/renderer/components/workspace/WorkspaceFolderSelect.tsx` — remove `!isDesktop` guard, add modal state, wire `handleBrowse()` branching
-- `src/renderer/components/settings/DirectorySelectionModal.tsx` — import into `WorkspaceFolderSelect` (may need prop adjustments)
+```
+~/fork-sync/
+├── bin/
+│   ├── sync.sh              # entry point
+│   ├── detect-release.sh    # verifica release
+│   ├── merge-upstream.sh    # merge logic
+│   └── push.sh              # commit/push
+├── lib/
+│   ├── github.sh            # gh API wrappers
+│   ├── git.sh               # git helpers
+│   └── telegram.sh          # Telegram notifications
+└── projects/
+    └── aionui/
+        └── sync.yaml        # config específico
+```
+
+### Files to Modify (AionUi repo)
+
+- `.github/workflows/fork-sync.yml` — GitHub Actions workflow (alternativa ao cron local)
 
 ### Success Criteria
 
-1. User opens WebUI → sees browse button (not plain input)
-2. Clicking browse on web opens `DirectorySelectionModal`
-3. Selecting a directory in the modal → path appears in `WorkspaceFolderSelect` input
-4. Electron desktop → browse button still opens native OS dialog
-5. No regression: existing desktop behavior unchanged
-
-### Notes
-
-- Do NOT add new directory browsing logic — reuse existing `DirectorySelectionModal` and `/api/directory/browse`
-- Do NOT modify the server-side API unless path validation is missing
-- Keep the modal's `visible`/`onCancel`/`onConfirm` contract intact
+1. `~/fork-sync/bin/sync.sh aionui` executa sem erros
+2. Cron job ativo (`0 8 * * *`) e logando em `~/fork-sync/logs/`
+3. Detecta nova release comparando com `last_sync`
+4. Merge aplica sem perder arquivos em `protected_paths`
+5. Commits com prefixo `[fork-sync]` e push para origin
 
 ---
 
-## Phase 2: Build Pipeline & Hardening
+## Phase 2: AI Decision Engine
 
-**Goal**: Produce production-ready deployable artifacts for web and desktop, with hardened path validation.
+**Goal**: IA analisa conflitos e impacto antes de aplicar merge, notifica via Telegram.
 
 ### Requirements
 
-- [ ] BUILD-01: Web renderer builds to Apache2-deployable assets (`dist-renderer-web/`)
-- [ ] BUILD-02: Server builds to deployable bundle (`dist-server/`)
-- [ ] BUILD-03: Desktop build produces installable Electron app
-- [ ] SEC-01: Server-side path validation on `/api/directory/browse`
-- [ ] SEC-02: Path validation via `POST /api/directory/validate` before saving
+- [ ] AIDEC-01: Detecta conflitos de merge automaticamente
+- [ ] AIDEC-02: Análise de diff pela IA antes de aplicar merge
+- [ ] AIDEC-03: Notificação Telegram com contexto + recomendação
 
-### Files to Modify
+### Files to Create/Modify
 
-- Build scripts / `package.json` (if missing build commands)
-- `src/process/webserver/directoryApi.ts` (if path validation gaps found)
-- Apache2 deployment config (if needed)
+- `~/fork-sync/lib/ai-decision.sh` — análise de diff + chamada para Hermes Agent
+- `~/fork-sync/lib/analyze-conflict.sh` — prepara contexto de conflito
 
 ### Success Criteria
 
-1. `bun run build:renderer:web` → static assets in `dist-renderer-web/`
-2. `bun run build:server` → bundle in `dist-server/`, starts without errors
-3. `bun run build:electron` → installable app (`.AppImage`/`.dmg`/`.exe`)
-4. `/api/directory/browse` rejects paths outside allowed roots (tested manually)
-5. Selecting `/` or `../` via WebUI modal → server returns 403 or empty, no crash
+1. Conflito detectado → IA recebe diff completo
+2. IA retorna classificação: `approve`, `reject`, ou `needs_review`
+3. Notificação Telegram enviada com: versão, arquivos impactados, diff resumido, recomendação
+4. Se `approve` → merge continua automaticamente
+5. Se `needs_review` → aguarda comando Telegram
+
+---
+
+## Phase 3: Telegram Approval Flow
+
+**Goal**: Bot/listener Telegram processa comandos e executa ações de merge.
+
+### Requirements
+
+- [ ] TAF-01: Comandos `/fork-approve`, `/fork-reject`, `/fork-adjust`
+- [ ] TAF-02: Processa decisão e executa ação
+- [ ] TAF-03: Feedback loop com resultado
+
+### Files to Create
+
+- `~/fork-sync/bin/telegram-listener.sh` — polling listener para comandos
+- `~/fork-sync/lib/commands.sh` — parse e execução de comandos
+
+### Success Criteria
+
+1. Listener recebe comandos e identifica projeto
+2. `/fork-approve` → completa merge + push + notifica success
+3. `/fork-reject` → aborta merge + mantém alterações locais + notifica
+4. `/fork-adjust` → passa instruções para IA re-analisar
+5. Resultado final enviado no Telegram após cada ação
+
+---
+
+## Phase 4: Module Packaging
+
+**Goal**: Empacotar como módulo reutilizável com templates e setup rápido.
+
+### Requirements
+
+- [ ] MOD-01: Estrutura completa `~/fork-sync/`
+- [ ] MOD-02: Template `sync.yaml` com todas opções
+- [ ] MOD-03: Script `setup-project.sh` para novo fork
+
+### Files to Create
+
+```
+~/fork-sync/
+├── templates/
+│   └── sync.yaml.template
+└── bin/
+    └── setup-project.sh
+```
+
+### Success Criteria
+
+1. `setup-project.sh {upstream_url}` cria estrutura completa
+2. `sync.yaml.template` cobre todos os cenários
+3. Módulo funciona em outro projeto apenas copiando a estrutura
+4. Documentação de uso (`README.md`)
 
 ---
 
 ## Phase Details
 
-### Phase 1: Web Directory Selector
+### Phase 1: Fork Sync Core
 
-**Goal**: Enable visual folder selection on WebUI by wiring existing `DirectorySelectionModal` into `WorkspaceFolderSelect`
+**Goal**: Script base que verifica upstream diariamente às 08:00, detecta nova release, e faz merge automático.
 
-**Files**: `src/renderer/components/workspace/WorkspaceFolderSelect.tsx`, `src/renderer/components/settings/DirectorySelectionModal.tsx`
-
-**Success criteria**:
-1. User opens WebUI → sees browse button (not plain input)
-2. Clicking browse on web opens `DirectorySelectionModal`
-3. Selecting a directory in the modal → path appears in `WorkspaceFolderSelect` input
-4. Electron desktop → browse button still opens native OS dialog
-5. No regression: existing desktop behavior unchanged
-
-### Phase 2: Build Pipeline & Hardening
-
-**Goal**: Produce deployable web/server assets and harden server-side path validation
-
-**Files**: Build scripts, `src/process/webserver/directoryApi.ts`, Apache2 config
+**Files**: `~/fork-sync/bin/*.sh`, `~/fork-sync/lib/*.sh`, `~/fork-sync/projects/aionui/sync.yaml`
 
 **Success criteria**:
-1. `bun run build:renderer:web` → static assets in `dist-renderer-web/`
-2. `bun run build:server` → bundle in `dist-server/`, starts without errors
-3. `bun run build:electron` → installable app
-4. `/api/directory/browse` rejects paths outside allowed roots
-5. Selecting `/` or `../` via WebUI modal → server returns 403 or empty, no crash
+1. `~/fork-sync/bin/sync.sh aionui` executa sem erros
+2. Cron job ativo (`0 8 * * *`) e logando em `~/fork-sync/logs/`
+3. Detecta nova release comparando com `last_sync`
+4. Merge aplica sem perder arquivos em `protected_paths`
+5. Commits com prefixo `[fork-sync]` e push para origin
+
+### Phase 2: AI Decision Engine
+
+**Goal**: IA analisa conflitos e impacto antes de aplicar merge, notifica via Telegram.
+
+**Files**: `~/fork-sync/lib/ai-decision.sh`, `~/fork-sync/lib/analyze-conflict.sh`
+
+**Success criteria**:
+1. Conflito detectado → IA recebe diff completo
+2. IA retorna classificação: `approve`, `reject`, ou `needs_review`
+3. Notificação Telegram enviada com contexto + recomendação
+4. Se `approve` → merge continua automaticamente
+5. Se `needs_review` → aguarda comando Telegram
+
+### Phase 3: Telegram Approval Flow
+
+**Goal**: Bot/listener Telegram processa comandos e executa ações de merge.
+
+**Files**: `~/fork-sync/bin/telegram-listener.sh`, `~/fork-sync/lib/commands.sh`
+
+**Success criteria**:
+1. Listener recebe comandos e identifica projeto
+2. `/fork-approve` → completa merge + push + notifica success
+3. `/fork-reject` → aborta merge + mantém alterações locais + notifica
+4. `/fork-adjust` → passa instruções para IA re-analisar
+5. Resultado final enviado no Telegram após cada ação
+
+### Phase 4: Module Packaging
+
+**Goal**: Empacotar como módulo reutilizável com templates e setup rápido.
+
+**Files**: `~/fork-sync/templates/sync.yaml.template`, `~/fork-sync/bin/setup-project.sh`, `~/fork-sync/README.md`
+
+**Success criteria**:
+1. `setup-project.sh {upstream_url}` cria estrutura completa
+2. `sync.yaml.template` cobre todos os cenários
+3. Módulo funciona em outro projeto apenas copiando a estrutura
+4. Documentação de uso (`README.md`)
 
 ---
 
-*Last updated: 2026-05-06 after roadmap creation*
+## Build Order
+
+```
+Phase 1 (Fork Sync Core)
+    ↓
+Phase 2 (AI Decision Engine)  ← pode começar após FSYNC-03
+    ↓
+Phase 3 (Telegram Approval)   ← depende de AIDEC-03
+    ↓
+Phase 4 (Module Packaging)    ← final, após todos os scripts funcionarem
+```
+
+---
+
+*Last updated: 2026-05-06 after v2 roadmap creation*
