@@ -648,14 +648,6 @@ export function registerApiRoutes(app: Express): void {
    * GET /api/channel/weixin/login
    */
   registerWeixinLoginRoutes(app, validateApiAccess);
-
-  /**
-   * 通用 API 端点 - Generic API endpoint
-   * GET /api
-   */
-  app.use('/api', apiRateLimiter, validateApiAccess, (_req: Request, res: Response) => {
-    res.json({ message: 'API endpoint - bridge integration working' });
-  });
 }
 
 export default registerApiRoutes;

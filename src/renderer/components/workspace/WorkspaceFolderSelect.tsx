@@ -5,10 +5,10 @@
  */
 
 import { ipcBridge } from '@/common';
-import { Input } from '@arco-design/web-react';
 import { Check, Close, Down, Folder, FolderOpen, FolderPlus } from '@icon-park/react';
 import { isElectronDesktop } from '@renderer/utils/platform';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import DirectorySelectionModal from '@/renderer/components/settings/DirectorySelectionModal';
 
 const DEFAULT_RECENT_WS_KEY = 'aionui:recent-workspaces';
 const MENU_GAP = 4;
@@ -65,7 +65,7 @@ const WorkspaceFolderSelect: React.FC<WorkspaceFolderSelectProps> = ({
   onChange,
   onClear,
   placeholder,
-  inputPlaceholder,
+  inputPlaceholder: _inputPlaceholder,
   recentLabel,
   chooseDifferentLabel,
   recentStorageKey = DEFAULT_RECENT_WS_KEY,
@@ -75,8 +75,8 @@ const WorkspaceFolderSelect: React.FC<WorkspaceFolderSelectProps> = ({
 }) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPosition>({ top: 0, left: 0, width: 0, maxHeight: MAX_MENU_HEIGHT });
+  const [showDirectorySelector, setShowDirectorySelector] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
-  const isDesktop = isElectronDesktop();
   const recentWorkspaces = getRecentWorkspaces(recentStorageKey);
 
   const updateMenuPosition = useCallback(() => {
@@ -125,10 +125,14 @@ const WorkspaceFolderSelect: React.FC<WorkspaceFolderSelectProps> = ({
   const handleBrowse = async () => {
     setMenuVisible(false);
 
-    const files = await ipcBridge.dialog.showOpen.invoke({ properties: ['openDirectory', 'createDirectory'] });
-    if (files?.[0]) {
-      onChange(files[0]);
-      addRecentWorkspace(files[0], recentStorageKey);
+    if (isElectronDesktop()) {
+      const files = await ipcBridge.dialog.showOpen.invoke({ properties: ['openDirectory', 'createDirectory'] });
+      if (files?.[0]) {
+        onChange(files[0]);
+        addRecentWorkspace(files[0], recentStorageKey);
+      }
+    } else {
+      setShowDirectorySelector(true);
     }
   };
 
@@ -148,10 +152,6 @@ const WorkspaceFolderSelect: React.FC<WorkspaceFolderSelectProps> = ({
   };
 
   const folderName = value ? value.split(/[\\/]/).pop() || value : '';
-
-  if (!isDesktop) {
-    return <Input placeholder={inputPlaceholder ?? placeholder} value={value ?? ''} onChange={onChange} />;
-  }
 
   return (
     <div className='relative' ref={triggerRef}>
@@ -258,6 +258,18 @@ const WorkspaceFolderSelect: React.FC<WorkspaceFolderSelectProps> = ({
           </div>
         </div>
       )}
+
+      <DirectorySelectionModal
+        visible={showDirectorySelector}
+        onConfirm={(paths) => {
+          if (paths?.[0]) {
+            onChange(paths[0]);
+            addRecentWorkspace(paths[0], recentStorageKey);
+          }
+          setShowDirectorySelector(false);
+        }}
+        onCancel={() => setShowDirectorySelector(false)}
+      />
     </div>
   );
 };
