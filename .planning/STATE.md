@@ -8,7 +8,7 @@
 |-------|-------|
 | Status | Active — Milestone v2 started |
 | Milestone | v2 — Fork Sync Engine |
-| Current Phase | Not started (planning) |
+| Current Phase | Phase 1 — Fork Sync Core (context captured) |
 | Last Updated | 2026-05-06 |
 
 ## Milestones
@@ -23,7 +23,7 @@
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | Fork Sync Core | Not started |
+| 1 | Fork Sync Core | In progress |
 | 2 | AI Decision Engine | Not started |
 | 3 | Telegram Approval Flow | Not started |
 | 4 | Module Packaging | Not started |
