@@ -2,10 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'aionui-web',
-      script: '/home/ubuntu/GitHub/forks/AionUi/node_modules/.bin/electron-vite',
-      args: 'dev -- --webui --remote',
+      script: '/home/ubuntu/GitHub/forks/AionUi/start-aionui.sh',
       cwd: '/home/ubuntu/GitHub/forks/AionUi',
-      interpreter: 'none',
+      interpreter: 'bash',
       env: {
         NODE_ENV: 'development',
         AIONUI_PORT: '34005',
@@ -15,7 +14,7 @@ module.exports = {
       max_restarts: 30,
       min_uptime: 5000,
       watch: false,
-      kill_timeout: 5000,
+      kill_timeout: 10000,
     },
   ],
 };
