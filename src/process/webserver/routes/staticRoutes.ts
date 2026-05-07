@@ -13,6 +13,7 @@ import { getPlatformServices } from '@/common/platform';
 import { TokenMiddleware } from '@process/webserver/auth/middleware/TokenMiddleware';
 import { AUTH_CONFIG } from '../config/constants';
 import { createRateLimiter } from '../middleware/security';
+import { UserSettingsService } from '@process/services/UserSettingsService';
 
 /**
  * Vite dev server port — read from ELECTRON_RENDERER_URL when available
@@ -127,8 +128,25 @@ function registerProductionStaticRoutes(expressApp: Express, staticRoot: string,
       }
 
       const htmlContent = fs.readFileSync(indexHtmlPath, 'utf8');
+
+      // Inject theme from server-side storage to eliminate flash
+      const settings = UserSettingsService.getSettings();
+      const theme = settings.theme ?? 'light';
+      const colorScheme = settings.colorScheme ?? 'default';
+
+      const injectedHtml = htmlContent
+        .replace(/data-theme="light"/, `data-theme="${theme}"`)
+        .replace(/data-color-scheme="default"/, `data-color-scheme="${colorScheme}"`)
+        .replace(
+          /<script>\s*\/\/ Set arco-theme on body synchronously[\s\S]*?<\/script>/,
+          `<script>document.body.setAttribute('arco-theme', '${theme}');</script>`
+        )
+        // Fix relative asset paths when served from /login route
+        // Inject <base href="/"> so that ./assets/... resolves to /assets/... not /login/assets/...
+        .replace(/<head>/, `<head>\n    <base href="/">`);
+
       res.setHeader('Content-Type', 'text/html');
-      res.send(htmlContent);
+      res.send(injectedHtml);
     } catch (error) {
       console.error('Error serving index.html:', error);
       res.status(500).send('Internal Server Error');

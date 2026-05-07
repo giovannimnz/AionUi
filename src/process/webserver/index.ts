@@ -17,7 +17,10 @@ import { initWebAdapter } from './adapter';
 import { setupBasicMiddleware, setupCors, setupErrorHandler } from './setup';
 import { registerAuthRoutes } from './routes/authRoutes';
 import { registerApiRoutes } from './routes/apiRoutes';
+import { registerUserSettingsRoutes } from './routes/userSettingsRoutes';
 import { registerStaticRoutes, resolveRendererPath, VITE_DEV_PORT } from './routes/staticRoutes';
+import { apiRateLimiter } from './middleware/security';
+import { TokenMiddleware } from './auth/middleware/TokenMiddleware';
 import { generateQRLoginUrlDirect } from '@process/bridge/webuiQR';
 
 // Express Request 类型扩展定义在 src/webserver/types/express.d.ts
@@ -310,7 +313,13 @@ export async function startWebServerWithInstance(port: number, allowRemote = fal
   // 注册路由 / Register routes
   registerAuthRoutes(app);
   registerApiRoutes(app);
+  registerUserSettingsRoutes(app);
   registerStaticRoutes(app);
+
+  // 通配 API 兜底（必须在所有具体路由之后）/ Catch-all API fallback (must be after all specific routes)
+  app.use('/api', apiRateLimiter, (_req, res) => {
+    res.json({ message: 'API endpoint - bridge integration working' });
+  });
 
   // 配置错误处理（必须最后）/ Setup error handler (must be last)
   setupErrorHandler(app);

@@ -25,6 +25,24 @@ vi.mock('@arco-design/web-react', () => ({
   ),
 }));
 
+vi.mock('@/renderer/components/settings/DirectorySelectionModal', () => ({
+  default: ({
+    visible,
+    onConfirm,
+    onCancel,
+  }: {
+    visible: boolean;
+    onConfirm: (p: string[] | undefined) => void;
+    onCancel: () => void;
+  }) =>
+    visible ? (
+      <div data-testid='directory-modal'>
+        <button data-testid='modal-confirm' onClick={() => onConfirm(['/selected/path'])} />
+        <button data-testid='modal-cancel' onClick={onCancel} />
+      </div>
+    ) : null,
+}));
+
 vi.mock('@icon-park/react', () => ({
   Check: () => <span data-testid='icon-check' />,
   Close: ({ onClick }: { onClick?: (e: React.MouseEvent) => void }) => (
@@ -131,15 +149,15 @@ describe('WorkspaceFolderSelect', () => {
   });
 });
 
-describe('WorkspaceFolderSelect - non-desktop fallback', () => {
+describe('WorkspaceFolderSelect - non-desktop webui behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
     mockShowOpen.mockResolvedValue([]);
+    mockIsElectronDesktop.mockReturnValue(false);
   });
 
-  it('renders a plain Input in non-desktop environments', () => {
-    mockIsElectronDesktop.mockReturnValue(false);
+  it('renders the full visual component in non-desktop environments', () => {
     const onChange = vi.fn();
     render(
       <WorkspaceFolderSelect
@@ -149,25 +167,61 @@ describe('WorkspaceFolderSelect - non-desktop fallback', () => {
         inputPlaceholder='Enter workspace path'
         recentLabel='Recent'
         chooseDifferentLabel='Browse'
+        triggerTestId='workspace-trigger'
+        menuTestId='workspace-menu'
       />
     );
-    const input = screen.getByPlaceholderText('Enter workspace path');
-    expect(input).toBeInTheDocument();
-    expect(input).toHaveValue('/some/path');
+    // Renders the folder trigger button, not a plain input
+    expect(screen.getByTestId('workspace-trigger')).toBeInTheDocument();
+    // Shows the folder name and path
+    expect(screen.getByText('/some/path')).toBeInTheDocument();
   });
 
-  it('falls back to placeholder when inputPlaceholder is absent', () => {
-    mockIsElectronDesktop.mockReturnValue(false);
+  it('opens DirectorySelectionModal directly when clicking trigger with no recent workspaces', async () => {
+    const onChange = vi.fn();
     render(
       <WorkspaceFolderSelect
         value=''
-        onChange={vi.fn()}
-        placeholder='Fallback placeholder'
+        onChange={onChange}
+        placeholder='Select folder'
         recentLabel='Recent'
-        chooseDifferentLabel='Browse'
+        chooseDifferentLabel='Choose a different folder'
+        triggerTestId='workspace-trigger'
       />
     );
-    expect(screen.getByPlaceholderText('Fallback placeholder')).toBeInTheDocument();
+    // Click trigger - with no recent workspaces, it directly opens the modal
+    fireEvent.click(screen.getByTestId('workspace-trigger'));
+    // Modal is directly visible (browse is called since no recent workspaces)
+    expect(screen.getByTestId('directory-modal')).toBeInTheDocument();
+  });
+
+  it('calls onChange with selected path when modal is confirmed in non-desktop', async () => {
+    const onChange = vi.fn();
+    // Pre-populate recent workspaces so the menu appears (instead of direct browse)
+    localStorage.setItem('aionui:recent-workspaces', JSON.stringify(['/recent/workspace']));
+    render(
+      <WorkspaceFolderSelect
+        value=''
+        onChange={onChange}
+        placeholder='Select folder'
+        recentLabel='Recent'
+        chooseDifferentLabel='Browse'
+        triggerTestId='workspace-trigger'
+        menuTestId='workspace-menu'
+      />
+    );
+    // Click trigger to open the menu (since recent workspaces exist)
+    fireEvent.click(screen.getByTestId('workspace-trigger'));
+    // Menu should be visible with the Browse option
+    expect(screen.getByTestId('workspace-menu')).toBeInTheDocument();
+    expect(screen.getByText('Browse')).toBeInTheDocument();
+    // Click Browse to open the modal
+    fireEvent.click(screen.getByText('Browse'));
+    // Modal should appear
+    expect(screen.getByTestId('directory-modal')).toBeInTheDocument();
+    // Confirm in modal
+    fireEvent.click(screen.getByTestId('modal-confirm'));
+    expect(onChange).toHaveBeenCalledWith('/selected/path');
   });
 });
 

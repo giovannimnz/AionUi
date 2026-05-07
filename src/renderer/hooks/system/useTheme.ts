@@ -7,19 +7,49 @@ export type Theme = 'light' | 'dark';
 const DEFAULT_THEME: Theme = 'light';
 const THEME_CACHE_KEY = '__aionui_theme';
 
+/**
+ * In remote mode, the server injects the theme into the HTML before sending.
+ * Read it directly from the DOM to avoid localStorage round-trips.
+ */
+function getServerInjectedTheme(): Theme {
+  const theme = document.documentElement.getAttribute('data-theme') as Theme | null;
+  return theme === 'light' || theme === 'dark' ? theme : null;
+}
+
+/**
+ * Persist theme to server-side storage (for remote/WebUI mode).
+ * Falls back silently if the server is unreachable.
+ */
+async function persistThemeToServer(theme: Theme): Promise<void> {
+  try {
+    const response = await fetch('/api/user-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme }),
+    });
+    if (!response.ok) {
+      console.warn('[useTheme] Server persist failed:', response.status);
+    }
+  } catch (error) {
+    // Silent failure — local state is already updated
+    console.warn('[useTheme] Server persist error:', error);
+  }
+}
+
 // Initialize theme immediately when module loads
 const initTheme = async () => {
   try {
-    const theme = (await ConfigStorage.get('theme')) as Theme;
-    const initialTheme = theme || DEFAULT_THEME;
-    document.documentElement.setAttribute('data-theme', initialTheme);
-    document.body.setAttribute('arco-theme', initialTheme);
+    // Priority: server-injected theme (remote mode) > ConfigStorage (desktop mode) > default
+    const serverTheme = getServerInjectedTheme();
+    const theme = serverTheme ?? ((await ConfigStorage.get('theme')) as Theme | null) ?? DEFAULT_THEME;
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('arco-theme', theme);
     try {
-      localStorage.setItem(THEME_CACHE_KEY, initialTheme);
+      localStorage.setItem(THEME_CACHE_KEY, theme);
     } catch (_e) {
       /* noop */
     }
-    return initialTheme;
+    return theme;
   } catch (error) {
     console.error('Failed to load initial theme:', error);
     document.documentElement.setAttribute('data-theme', DEFAULT_THEME);
@@ -54,7 +84,9 @@ const useTheme = (): [Theme, (theme: Theme) => Promise<void>] => {
       try {
         setThemeState(newTheme);
         applyTheme(newTheme);
+        // Persist to both local (desktop) and server (remote mode)
         await ConfigStorage.set('theme', newTheme);
+        persistThemeToServer(newTheme);
       } catch (error) {
         console.error('Failed to save theme:', error);
         // Revert on error
