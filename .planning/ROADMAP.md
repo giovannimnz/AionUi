@@ -21,10 +21,10 @@
 
 ### Requirements
 
-- [ ] FSYNC-01: Cron job diário às 08:00
-- [ ] FSYNC-02: Detecta nova versão via GitHub API
-- [ ] FSYNC-03: Pull + merge preservando overrides locais
-- [ ] FSYNC-04: Auto commit e push
+- [x] FSYNC-01: Cron job diário às 08:00
+- [x] FSYNC-02: Detecta nova versão via GitHub API
+- [x] FSYNC-03: Pull + merge preservando overrides locais
+- [x] FSYNC-04: Auto commit e push
 
 ### Files to Create
 

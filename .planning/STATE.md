@@ -8,7 +8,7 @@
 |-------|-------|
 | Status | Active — Milestone v2 started |
 | Milestone | v2 — Fork Sync Engine |
-| Current Phase | Phase 1 — Fork Sync Core (context captured) |
+| Current Phase | Phase 1 — Fork Sync Core (COMPLETE) |
 | Last Updated | 2026-05-06 |
 
 ## Milestones
@@ -23,7 +23,7 @@
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | Fork Sync Core | In progress |
+| 1 | Fork Sync Core | Complete |
 | 2 | AI Decision Engine | Not started |
 | 3 | Telegram Approval Flow | Not started |
 | 4 | Module Packaging | Not started |
@@ -43,11 +43,12 @@
 |------|---------|-----------|
 | 2026-05-06 | Initial | Codebase mapping, project initialization, research, requirements, roadmap |
 | 2026-05-06 | v2 init | Fork Sync Engine milestone initialized |
+| 2026-05-07 | Phase 1 | Fork Sync Core implemented + validated |
 
 ## Notes
 
 - Fork URL: https://github.com/giovannimnz/AionUi
-- Upstream official: https://github.com/QuantumNous/AionUi
+- Upstream official: https://github.com/iOfficeAI/AionUi
 - gh CLI disponível na máquina ubuntu
 - Telegram: Atius Capital Group (chat_id=-1003797723446)
 - Cron: `0 8 * * *` (diário às 08:00)
@@ -55,4 +56,4 @@
 
 ---
 
-*Last updated: 2026-05-06*
+*Last updated: 2026-05-07*
