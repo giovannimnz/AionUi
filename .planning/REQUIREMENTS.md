@@ -22,10 +22,14 @@
   - Arquivos em `protected_paths` no `sync.yaml` são preservados via `git checkout --ours` em caso de conflito
   - Marca commits de merge com prefixo `[fork-sync]`
 
-- [ ] **FSYNC-04**: Auto commit e push para branch do fork
-  - Commits only if there are changes after merge
-  - Push para `origin/main` (ou branch configurado)
-  - Usa `gh auth` token do sistema (sem hardcoded credentials)
+- [ ] **FSYNC-04**: Auto commit e push para branch do fork + criação de release/tag no GitHub
+  - Usa schema de versão: `{upstream_version}-rf{counter}`
+  - `rf1` = primeira release do fork baseada nessa upstream version
+  - `rf2`, `rf3`... = alterações subsequentes no fork SEM nova versão upstream
+  - Contador por upstream_version (cada versão base tem seu próprio contador rf)
+  - Arquivo de controle: `~/.fork-sync/{project}/versions/{upstream_version}/rf_counter`
+  - Release criada via `gh release create` com tag no formato `v{upstream_version}-rf{n}`
+  - Se não há nova versão upstream mas há alterações locais → incrementa rf (rf2, rf3...)
 
 ---
 
@@ -91,7 +95,7 @@
         └── sync.yaml.template
     ```
 
-- [ ] **MOD-02**: Config por projeto (`sync.yaml`)
+- [ ] **MOD-02**: Config `sync.yaml` por projeto
   ```yaml
   project: AionUi
   upstream: https://github.com/QuantumNous/AionUi
@@ -100,10 +104,15 @@
   protected_paths:
     - src/renderer/components/workspace/WorkspaceFolderSelect.tsx
     - src/process/webserver/directoryApi.ts
-  merge_strategy: rebase  # or merge
+  merge_strategy: merge  # or rebase
   auto_push: true
   notification_level: all  # all | conflicts | none
   ai_decision_threshold: conflicts  # always | conflicts | never
+  version_scheme:
+    suffix: "-rf"      # sufixo do fork
+    counter_file: "~/.fork-sync/{project}/versions/{upstream_version}/rf_counter"
+    # Exemplo: upstream v1.9.25 → fork v1.9.25-rf1
+    # Alterações seguintes → v1.9.25-rf2, v1.9.25-rf3, etc.
   ```
 
 - [ ] **MOD-03**: Comando de setup rápido para novo fork

@@ -18,6 +18,17 @@ Script base que verifica upstream diariamente às 08:00, detecta nova release vi
 - Commits de merge com prefixo `[fork-sync]: `
 - Evita reescrever histórico local
 
+### Release Versioning Scheme (CRITICAL)
+- **Schema**: `{upstream_version}-rf{counter}`
+- **Exemplo**:
+  - Upstream `v1.9.25` → Fork `v1.9.25-rf1` (primeira release)
+  - Mais alterações no fork (sem nova upstream) → `v1.9.25-rf2`, `v1.9.25-rf3`, etc.
+- **Contador**: Cada `upstream_version` tem seu próprio contador rf
+- **Arquivo de controle**: `~/.fork-sync/{project}/versions/{upstream_version}/rf_counter`
+- **Tag format**: `v{upstream_version}-rf{n}` (ex: `v1.9.25-rf1`)
+- **Release GitHub**: Criada via `gh release create` com tag
+- **Decisão importante**: O `-rf` é o identificador interno do fork — NUNCA é resetado a menos que upstream version mude
+
 ### Protected Paths Handling
 - **Auto `git checkout --ours`** em conflitos de arquivos listados em `protected_paths`
 - NÃO notifica automaticamente — override é direto
