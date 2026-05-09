@@ -74,7 +74,7 @@ export class PromptExecutor {
       this.timer.stop();
 
       // Fallback: emit usage from PromptResponse for backends that don't send usage_update
-      if (result.usage) {
+      if (result?.usage) {
         this.host.callbacks.onContextUsage({
           used: result.usage.totalTokens,
           total: 0,

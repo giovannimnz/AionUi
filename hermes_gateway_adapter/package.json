@@ -1,0 +1,17 @@
+{
+  "name": "hermes-gateway-adapter",
+  "version": "1.0.0",
+  "description": "HTTP gateway adapter for Hermes Agent — exposes Hermes CLI as REST API for AionUi integration",
+  "type": "module",
+  "main": "src/adapter-server.mjs",
+  "scripts": {
+    "start": "node src/adapter-server.mjs",
+    "dev": "node --watch src/adapter-server.mjs"
+  },
+  "dependencies": {
+    "yaml": "^2.6.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

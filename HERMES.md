@@ -1,8 +1,27 @@
 # AionUi — Project Guide
 
-> Fork: https://github.com/giovannimnz/AionUi
+---
+
+## 🛠️ Fork Customizations
+
+This fork contains custom modifications protected by `fork-sync`. These files will NOT be overwritten during upstream merges.
+
+---
+
+### Customization History
+| Date | Change | Files | Reason |
+|------|--------|-------|--------|
+| 2026-05-09 | Hermes Gateway Adapter (HTTP standalone) | `hermes_gateway_adapter/` | REST API for Hermes CLI — enables Hermes as backend without ACP subprocess |
+| 2026-05-07 | ACP control-char sanitization (errno 36 fix) | `skill_commands.py`, `base.py`, `server.py`, `skills_tool.py` | Bug fix: commands with `\n\r\t` caused "File name too long" |
+| 2026-05-07 | Null usage fix (prompt result) | `server.py`, `PromptExecutor.ts` | Bug fix: `result?.usage` optional chaining prevents "Cannot read properties of null" |
+| 2026-05-09 | **Toolset upgrade: hermes-acp → hermes-api-server** | `acp_adapter/session.py` | Adds `image_generate`, `cronjob`, `ha_*` tools; replaces `hermes-acp` (editor-only) with `hermes-api-server` (full-featured) |
+| 2026-05-09 | Atius Router integration | `config.yaml` | Uses `https://router.atius.com.br/v1` with `MiniMax-M2.7-hs` model |
+
+---
 
 ## Project Overview
+
+> Fork: https://github.com/giovannimnz/AionUi
 
 AionUi is a desktop AI agent application built with Electron + React 19 + TypeScript. This fork targets **multiplatform deployment**: WebUI (Apache2) and Electron desktop. The initial v1 goal is enabling visual directory selection on the WebUI.
 
@@ -88,6 +107,28 @@ When a Hermes session starts via AionUi, the following are automatically loaded:
 | Provider Credentials | `~/.hermes/config.yaml` → `providers` section | ✅ Working |
 | API Keys | Environment / config | ✅ Working |
 | ACP Protocol | `hermes acp` subprocess | ✅ Working |
+| **Toolset** | `hermes-api-server` (upgraded from `hermes-acp`) | ✅ Working |
+| Image Generation | `image_generate` tool (DALL-E, etc.) | ✅ Available |
+| Cronjob Management | `cronjob` tool | ✅ Available |
+| Home Assistant | `ha_*` tools | ✅ Available (if configured) |
+
+### Available Tools (hermes-api-server toolset)
+
+```
+Web:           web_search, web_extract
+Terminal:      terminal, process
+Files:         read_file, write_file, patch, search_files
+Vision:        vision_analyze, image_generate
+Skills:        skills_list, skill_view, skill_manage
+Browser:       browser_navigate, browser_snapshot, browser_click,
+               browser_type, browser_scroll, browser_back,
+               browser_press, browser_get_images,
+               browser_vision, browser_console, browser_cdp
+Memory:        todo, memory, session_search
+Execution:     execute_code, delegate_task
+Automation:    cronjob
+Home:          ha_list_entities, ha_get_state, ha_list_services, ha_call_service
+```
 
 ### ACP Adapter Modifications (Required for Skills)
 
@@ -151,6 +192,62 @@ AionUi (Electron/React)
     └─► ACP Client (renderer/backend bridge)
 ```
 
+### Hermes Gateway Adapter (HTTP Standalone)
+
+A alternative ao ACP subprocess — um servidor HTTP que expoe o Hermes CLI como REST API. Mais estavel que pipes subprocess, roda como servico independente.
+
+**Local:** `hermes_gateway_adapter/` (no repositorio do fork)
+
+**Stack:** Node.js HTTP server + `hermes chat -q -Q` subprocess
+
+**Porta padrao:** 8200 (configuravel via `ADAPTER_PORT` env)
+
+**Endpoints:**
+
+| Endpoint | Metodo | Funcao |
+|----------|--------|--------|
+| `/execute` | POST | Executa prompt Hermes CLI |
+| `/health` | GET | Liveness check |
+| `/ready` | GET | Readiness + deteccao de modelo |
+| `/skills` | GET | Lista 190 skills do Hermes |
+| `/model` | GET | Le config.yaml (modelo, provider, base_url) |
+| `/session` | POST | Gestao de sessoes |
+
+**API de execucao:**
+```bash
+curl -X POST http://localhost:8200/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "/gsd-help",
+    "model": "MiniMax-M2.7-hs",
+    "timeoutSec": 60
+  }'
+```
+
+**Resposta:**
+```json
+{
+  "exitCode": 0,
+  "response": "...",
+  "sessionId": "abc123",
+  "usage": {"inputTokens": 100, "outputTokens": 200},
+  "costUsd": 0.001
+}
+```
+
+**Session persistence:** Passe `sessionId` no body para continuar uma conversa.
+
+**Vantagens sobre ACP subprocess:**
+- Mais estavel (nao morre com pipes)
+- HTTP e stateless-friendly
+- Rate limiting, auth, e logging via middleware
+- Pode rodar em container separado
+- Testavel com curl direto
+
+**PM2 config:** `hermes_gateway_adapter/ecosystem.config.js`
+
+**Start:** `node src/adapter-server.mjs` (ou via PM2 com `pm2 start ecosystem.config.js`)
+
 ---
 
 ## Fork Sync Protection
@@ -184,7 +281,9 @@ All fork customizations are listed in `~/fork-sync/projects/aionui/sync.yaml` un
 | Network Config | `electron.vite.config.ts` (`allowedHosts`, `host: 0.0.0.0`) |
 | Service Worker | `public/sw.js` (cache v2, `/_next` excluded) |
 | PM2 Deployment | `ecosystem.aionui-web.config.js`, `ecosystem.config.js`, `start-aionui.sh` |
-| Fork Documentation | `HERMES.md` |
+| Hermes Gateway Adapter | `hermes_gateway_adapter/` (HTTP REST API for Hermes CLI) |
+| Hermes ACP Bug Fixes | `skill_commands.py`, `base.py`, `server.py`, `skills_tool.py` |
+| Hermes Toolset Upgrade | `acp_adapter/session.py` (hermes-acp → hermes-api-server) |
 
 ### Sync Scripts
 
@@ -216,4 +315,4 @@ bun run build:electron
 
 ---
 
-*Generated: 2026-05-07*
+*Generated: 2026-05-09*
